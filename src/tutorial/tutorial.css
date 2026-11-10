@@ -1835,3 +1835,56 @@
     display: none;
   }
 }
+.tutorial-still {
+  object-fit: contain;
+  background: #140b20;
+}
+.tutorial-target {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 126px;
+  border: 1px solid #8390b455;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #171528d9;
+  box-shadow: 0 4px 16px #05041288;
+}
+.tutorial-target > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16/9;
+  object-fit: cover;
+}
+.tutorial-target > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 8px;
+  font-size: 7px;
+  letter-spacing: 1px;
+  color: #bcc9df;
+}
+.tutorial-target:hover {
+  border-color: #c0d1daaa;
+}
+@media (max-width: 700px) {
+  .tutorial-target {
+    width: 84px;
+    top: 11px;
+    right: 11px;
+  }
+  .tutorial-target > span {
+    font-size: 6px;
+    letter-spacing: 0.7px;
+    padding: 5px;
+  }
+  .tutorial-target > span svg {
+    width: 10px;
+  }
+}
+@media print {
+  .tutorial-target {
+    display: none;
+  }
+}

@@ -24,6 +24,8 @@ try {
     viewport: { width: 1200, height: 675 },
     deviceScaleFactor: 1,
   });
+  page.setDefaultTimeout(90000);
+  page.setDefaultNavigationTimeout(90000);
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   const indices =

@@ -19,7 +19,7 @@ export const supplies: Record<
 > = {
   tank: {
     name: "Tank & stand",
-    qty: "45 × 30 × 30 cm",
+    qty: "Rencana: 45 × 30 × 30 cm",
     tip: "Kaca, sambungan, dan kekuatan stand perlu validasi pembuat tank.",
     reference: "tank",
     icon: "tank",
@@ -338,10 +338,10 @@ export const lessons: Lesson[] = [
       "Satu introduksi per tahap; amati respons sebelum menambah lagi.",
     ],
     safety:
-      "Satu clownfish di gambar hanya ilustrasi, bukan persetujuan stocking. Anemon tidak wajib.",
+      "Biota pada desain asli adalah target visual, bukan paket penghuni untuk tank 45 cm. Anemon tidak wajib.",
     done: "Kesesuaian spesies, kesehatan, dan kesiapan air sudah ditinjau.",
     checkKey: "step-livestock",
-    focus: "Contoh visual · bukan daftar stocking",
+    focus: "Desain asli · bukan rekomendasi stocking",
     detail:
       "Tank 45 cm ini tidak otomatis cocok untuk satu atau sepasang clownfish. Tinjau kebutuhan dengan aquarist kompeten, dan naikkan ukuran tank jika diperlukan. Mandarin, butterflyfish, dan anemon bukan paket awal. Pilih koral setelah cahaya, aliran, dan stabilitas tervalidasi; bentuk koral di gambar bukan rekomendasi spesies.",
   },

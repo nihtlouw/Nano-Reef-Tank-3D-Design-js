@@ -10,7 +10,7 @@ const { w: W, d: D, sand: SAND } = TANK;
 
 export function sandHeight(x: number, z: number) {
   // gentle slope toward the back + dunes
-  const back = (-(z) / D + 0.5) * 0.18;
+  const back = (-z / D + 0.5) * 0.18;
   return SAND + back + fbm3(x * 0.6, 0, z * 0.6, 3) * 0.08;
 }
 
@@ -31,10 +31,14 @@ function Sand() {
   const mat = useMemo(
     () =>
       patchMaterial(
-        new THREE.MeshStandardMaterial({ map: sandTexture(), color: "#e8eefc", roughness: 0.95 }),
-        { caustics: 1.25 }
+        new THREE.MeshStandardMaterial({
+          map: sandTexture(),
+          color: "#e8eefc",
+          roughness: 0.95,
+        }),
+        { caustics: 1.25 },
       ),
-    []
+    [],
   );
   // front cross-section of the sand bed (visible through the glass)
   const sideGeo = useMemo(() => {
@@ -65,7 +69,13 @@ function Sand() {
     <group>
       <mesh geometry={geo} material={mat} receiveShadow />
       <mesh geometry={sideGeo}>
-        <meshStandardMaterial map={sandSideTexture()} color="#c9d4f0" roughness={1} emissive="#3050c0" emissiveIntensity={0.25} />
+        <meshStandardMaterial
+          map={sandSideTexture()}
+          color="#c9d4f0"
+          roughness={1}
+          emissive="#3050c0"
+          emissiveIntensity={0.25}
+        />
       </mesh>
       <Rubble />
     </group>
@@ -77,10 +87,17 @@ function Rubble() {
   const count = 140;
   const mat = useMemo(
     () =>
-      patchMaterial(new THREE.MeshStandardMaterial({ color: "#c9bfd6", roughness: 1, flatShading: true }), {
-        caustics: 1,
-      }),
-    []
+      patchMaterial(
+        new THREE.MeshStandardMaterial({
+          color: "#c9bfd6",
+          roughness: 1,
+          flatShading: true,
+        }),
+        {
+          caustics: 1,
+        },
+      ),
+    [],
   );
   useLayoutEffect(() => {
     const r = mulberry32(42);
@@ -94,7 +111,11 @@ function Rubble() {
       const s = 0.02 + r() * r() * 0.07;
       e.set(r() * 3, r() * 3, r() * 3);
       q.setFromEuler(e);
-      m.compose(new THREE.Vector3(x, sandHeight(x, z) + s * 0.3, z), q, new THREE.Vector3(s, s * 0.7, s));
+      m.compose(
+        new THREE.Vector3(x, sandHeight(x, z) + s * 0.3, z),
+        q,
+        new THREE.Vector3(s, s * 0.7, s),
+      );
       ref.current!.setMatrixAt(i, m);
       c.setHSL(0.8 + r() * 0.15, 0.25, 0.55 + r() * 0.3);
       ref.current!.setColorAt(i, c);
@@ -102,7 +123,12 @@ function Rubble() {
     ref.current!.instanceMatrix.needsUpdate = true;
   }, []);
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, count]} material={mat} castShadow>
+    <instancedMesh
+      ref={ref}
+      args={[undefined, undefined, count]}
+      material={mat}
+      castShadow
+    >
       <dodecahedronGeometry args={[1, 0]} />
     </instancedMesh>
   );
@@ -127,8 +153,18 @@ export const ROCKS: RockDef[] = [
   { p: [0.45, 1.55, -0.25], s: [0.4, 0.35, 0.38], seed: 15 },
   { p: [-1.65, 0.45, 0.45], s: [0.48, 0.3, 0.4], seed: 7 },
   { p: [1.95, 0.42, 0.55], s: [0.35, 0.24, 0.3], seed: 8 },
-  { p: [-2.2, 0.85, -1.15], s: [0.7, 0.85, 0.5], seed: 9, coat: { color: "#5dff6a", count: 1600, len: 0.07 } },
-  { p: [-1.45, 1.15, -1.25], s: [0.6, 1.0, 0.45], seed: 10, coat: { color: "#8dff4a", count: 1500, len: 0.075 } },
+  {
+    p: [-2.2, 0.85, -1.15],
+    s: [0.7, 0.85, 0.5],
+    seed: 9,
+    coat: { color: "#5dff6a", count: 1600, len: 0.07 },
+  },
+  {
+    p: [-1.45, 1.15, -1.25],
+    s: [0.6, 1.0, 0.45],
+    seed: 10,
+    coat: { color: "#8dff4a", count: 1500, len: 0.075 },
+  },
   { p: [2.3, 0.7, -1.05], s: [0.62, 0.62, 0.5], seed: 11 },
   { p: [2.55, 0.45, 0.2], s: [0.35, 0.3, 0.32], seed: 12 },
   { p: [-2.55, 0.42, 0.6], s: [0.32, 0.22, 0.3], seed: 13 },
@@ -144,7 +180,10 @@ const CORALLINE = [
 ];
 
 export function makeRockGeometry(def: RockDef) {
-  let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(1, def.detail ?? 4);
+  let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(
+    1,
+    def.detail ?? 4,
+  );
   g.deleteAttribute("normal");
   g.deleteAttribute("uv");
   g = mergeVertices(g);
@@ -170,7 +209,10 @@ export function makeRockGeometry(def: RockDef) {
     // coralline colouring
     const n1 = fbm3(v.x * 2.5 + o, v.y * 2.5, v.z * 2.5, 3) * 0.5 + 0.5;
     const n2 = noise3(v.x * 6 - o, v.y * 6, v.z * 6) * 0.5 + 0.5;
-    c.copy(CORALLINE[0]).lerp(CORALLINE[1], THREE.MathUtils.smoothstep(n1, 0.45, 0.75));
+    c.copy(CORALLINE[0]).lerp(
+      CORALLINE[1],
+      THREE.MathUtils.smoothstep(n1, 0.45, 0.75),
+    );
     c.lerp(CORALLINE[2], THREE.MathUtils.smoothstep(n2, 0.55, 0.8) * 0.8);
     if (n2 < 0.28) c.lerp(CORALLINE[3], 0.7);
     if (hole > 0.2) c.lerp(new THREE.Color("#2a0e1c"), 0.6);
@@ -187,14 +229,29 @@ export function makeRockGeometry(def: RockDef) {
 let rockMat: THREE.MeshStandardMaterial | null = null;
 function getRockMat() {
   if (!rockMat)
-    rockMat = patchMaterial(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }), {
-      caustics: 0.8,
-    });
+    rockMat = patchMaterial(
+      new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92 }),
+      {
+        caustics: 0.8,
+      },
+    );
   return rockMat;
 }
 
 /* polyp coat (green star polyps) sampled from rock surface */
-function PolypCoat({ geo, color, count, len, seed }: { geo: THREE.BufferGeometry; color: string; count: number; len: number; seed: number }) {
+function PolypCoat({
+  geo,
+  color,
+  count,
+  len,
+  seed,
+}: {
+  geo: THREE.BufferGeometry;
+  color: string;
+  count: number;
+  len: number;
+  seed: number;
+}) {
   const stalkRef = useRef<THREE.InstancedMesh>(null);
   const tipRef = useRef<THREE.InstancedMesh>(null);
   const { stalkGeo, tipGeo, stalkMat, tipMat } = useMemo(() => {
@@ -203,15 +260,25 @@ function PolypCoat({ geo, color, count, len, seed }: { geo: THREE.BufferGeometry
     const tg = new THREE.ConeGeometry(0.03, 0.012, 7, 1);
     tg.translate(0, len, 0);
     const sm = patchMaterial(
-      new THREE.MeshStandardMaterial({ color: "#5a2a6a", roughness: 0.8, emissive: "#3a1050", emissiveIntensity: 0.4 }),
-      { polyp: { len, sway: 0.02 } }
+      new THREE.MeshStandardMaterial({
+        color: "#5a2a6a",
+        roughness: 0.8,
+        emissive: "#3a1050",
+        emissiveIntensity: 0.4,
+      }),
+      { polyp: { len, sway: 0.02 } },
     );
     const tm = patchMaterial(
       registerGlow(
-        new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 1, roughness: 0.6 }),
-        0.9
+        new THREE.MeshStandardMaterial({
+          color,
+          emissive: color,
+          emissiveIntensity: 1,
+          roughness: 0.6,
+        }),
+        0.9,
       ),
-      { polyp: { len, sway: 0.02 } }
+      { polyp: { len, sway: 0.02 } },
     );
     return { stalkGeo: sg, tipGeo: tg, stalkMat: sm, tipMat: tm };
   }, [color, len]);
@@ -253,28 +320,44 @@ function PolypCoat({ geo, color, count, len, seed }: { geo: THREE.BufferGeometry
 
   return (
     <group>
-      <instancedMesh ref={stalkRef} args={[stalkGeo, stalkMat, count]} frustumCulled={false} />
-      <instancedMesh ref={tipRef} args={[tipGeo, tipMat, count]} frustumCulled={false} />
+      <instancedMesh
+        ref={stalkRef}
+        args={[stalkGeo, stalkMat, count]}
+        frustumCulled={false}
+      />
+      <instancedMesh
+        ref={tipRef}
+        args={[tipGeo, tipMat, count]}
+        frustumCulled={false}
+      />
     </group>
   );
 }
 
-function Rock({ def }: { def: RockDef }) {
+function Rock({ def, life }: { def: RockDef; life: boolean }) {
   const geo = useMemo(() => makeRockGeometry(def), [def]);
   return (
     <group position={def.p}>
       <mesh geometry={geo} material={getRockMat()} castShadow receiveShadow />
-      {def.coat && <PolypCoat geo={geo} color={def.coat.color} count={def.coat.count} len={def.coat.len} seed={def.seed * 7} />}
+      {life && def.coat && (
+        <PolypCoat
+          geo={geo}
+          color={def.coat.color}
+          count={def.coat.count}
+          len={def.coat.len}
+          seed={def.seed * 7}
+        />
+      )}
     </group>
   );
 }
 
-export default function Rockscape() {
+export default function Rockscape({ life = true }: { life?: boolean }) {
   return (
     <group>
       <Sand />
       {ROCKS.map((r, i) => (
-        <Rock key={i} def={r} />
+        <Rock key={i} def={r} life={life} />
       ))}
     </group>
   );

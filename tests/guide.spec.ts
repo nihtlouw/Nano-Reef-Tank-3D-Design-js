@@ -1,71 +1,32 @@
 import { test, expect } from "@playwright/test";
+import { stageParts } from "../src/tutorial/stages";
 
-test("overview, equipment hotspot, editable budget and persistent checklist", async ({
+function disableWebGL() {
+  const original = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (
+    this: HTMLCanvasElement,
+    type: string,
+    ...args: unknown[]
+  ) {
+    if (type.includes("webgl")) return null;
+    return original.apply(this, [type, ...args] as Parameters<typeof original>);
+  } as typeof original;
+}
+test("navigation contains exactly the two requested destinations", async ({
   page,
 }) => {
-  await page.goto("/#overview");
+  await page.goto("/");
+  const navigation = page.getByRole("navigation", { name: "Navigasi utama" });
+  await expect(navigation.getByRole("link")).toHaveCount(2);
   await expect(
-    page.getByRole("heading", { name: "Dari desain, menjadi kehidupan." }),
+    navigation.getByRole("link", { name: "Tutorial Visual", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    navigation.getByRole("link", { name: "Eksplorasi 3D", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("40,5", { exact: false }).first()).toBeVisible();
-  await page
-    .getByRole("button", { name: "Lihat kebutuhan Lampu reef" })
-    .click();
-  await expect(page).toHaveURL(/#equipment/);
-  const lamp = page.locator("#item-light");
-  await expect(lamp).toHaveClass(/highlighted/);
-  await lamp.getByRole("checkbox").check();
-  await page
-    .getByRole("spinbutton", {
-      name: "Alokasi Lampu reef & dudukan dalam rupiah",
-    })
-    .fill("1000000");
-  await expect(page.getByText("MELEBIHI / MENCAPAI BATAS")).toBeVisible();
-  await page.reload();
-  await expect(lamp.getByRole("checkbox")).toBeChecked();
-  await expect(
-    page.getByRole("spinbutton", {
-      name: "Alokasi Lampu reef & dudukan dalam rupiah",
-    }),
-  ).toHaveValue("1000000");
-  await expect(
-    page.getByText("Rp 5.100.000", { exact: false }).first(),
-  ).toBeVisible();
-});
-
-test("all assembly steps have diagrams and progress persists", async ({
-  page,
-}) => {
-  await page.goto("/#assembly");
-  await expect(
-    page.getByRole("heading", { name: "Validasi lokasi & suhu" }),
-  ).toBeVisible();
-  await page
-    .getByRole("checkbox", {
-      name: "Saya sudah melakukan dan memeriksa tahap ini",
-    })
-    .check();
-  await expect(page.getByText("1 dari 9 selesai")).toBeVisible();
-  for (let i = 0; i < 8; i++) {
-    await expect(page.locator(".step-detail svg.tank-diagram")).toBeVisible();
-    await page.getByRole("button", { name: "Tahap berikutnya" }).click();
-  }
-  await expect(
-    page.getByRole("heading", { name: "Tambahkan biota bertahap" }),
-  ).toBeVisible();
-  await page.reload();
-  await expect(
-    page.getByRole("checkbox", {
-      name: "Saya sudah melakukan dan memeriksa tahap ini",
-    }),
-  ).toBeChecked();
-  await expect(page.getByText("1 dari 9 selesai")).toBeVisible();
-});
-
-test("technical diagrams switch and no page overflows mobile", async ({
-  page,
-}) => {
-  for (const section of [
+  await expect(page.getByText(/reefnotes|reef notes/i)).toHaveCount(0);
+  await expect(page.locator(".sidebar,.workspace")).toHaveCount(0);
+  for (const hash of [
     "overview",
     "equipment",
     "blueprint",
@@ -73,141 +34,94 @@ test("technical diagrams switch and no page overflows mobile", async ({
     "cycling",
     "care",
   ]) {
-    await page.goto(`/#${section}`);
-    await expect(page.locator("main h1")).toBeVisible();
-    expect(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
-      ),
-    ).toBeTruthy();
-  }
-  await page.goto("/#blueprint");
-  for (const name of [
-    "Tampak depan",
-    "Tampak atas",
-    "Jalur air",
-    "Kelistrikan",
-  ]) {
-    await page.getByRole("button", { name, exact: true }).click();
+    await page.goto(`/#${hash}`);
     await expect(
-      page.getByRole("button", { name, exact: true }),
-    ).toHaveAttribute("aria-pressed", "true");
-    await expect(page.locator("svg.tank-diagram")).toBeVisible();
+      page.getByRole("heading", { name: "Kenali alat & bahanmu", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page
+        .getByRole("navigation", { name: "Navigasi utama" })
+        .getByRole("link"),
+    ).toHaveCount(2);
   }
 });
 
-test("journal validates, persists, exports and confirms deletion", async ({
-  page,
-}) => {
-  await page.goto("/#care");
-  await page.getByRole("button", { name: "Simpan catatan" }).click();
-  await expect(page.getByRole("status")).toContainText("Isi minimal satu");
-  await page.getByLabel("Suhu (°C)", { exact: true }).fill("25.8");
-  await page.getByLabel("Salinitas (ppt)", { exact: true }).fill("35");
-  await page
-    .getByLabel("Observasi / hasil tes lain")
-    .fill("Tes manual; HOB berjalan normal.");
-  await page.getByRole("button", { name: "Simpan catatan" }).click();
-  await expect(page.locator("tbody tr")).toHaveCount(1);
-  await page.reload();
-  await expect(page.locator("tbody")).toContainText("25.8");
-  await expect(page.locator("tbody")).toContainText(
-    "Tes manual; HOB berjalan normal.",
-  );
-  const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Ekspor JSON" }).click();
-  expect((await download).suggestedFilename()).toMatch(/reef-jurnal-.*\.json/);
-  await page.getByRole("button", { name: /^Hapus catatan/ }).click();
-  await page.getByRole("button", { name: "Batal", exact: true }).click();
-  await expect(page.locator("tbody tr")).toHaveCount(1);
-  await page.getByRole("button", { name: /^Hapus catatan/ }).click();
-  await page.getByRole("button", { name: "Ya, hapus" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Setiap pengukuran punya cerita." }),
-  ).toBeVisible();
+test("the original reef is the source for every tutorial and the full exploration", () => {
+  const full = stageParts();
+  expect(full.life).toBe(true);
+  expect(full.rocks).toBe(true);
+  expect(full.water).toBe(true);
+  for (let stage = 0; stage < 9; stage++)
+    expect(stageParts(stage).life).toBe(false);
+  expect(stageParts(0).exploded).toBe(true);
+  expect(stageParts(1).equipment).toBe(false);
+  expect(stageParts(2).water).toBe(true);
+  expect(stageParts(3).water).toBe(false);
+  expect(stageParts(4).rocks).toBe(true);
+  expect(stageParts(5).water).toBe(false);
+  expect(stageParts(6).water).toBe(true);
+  expect(stageParts(8).life).toBe(false);
+  expect(stageParts(9).life).toBe(true);
+  expect(stageParts(10).life).toBe(true);
 });
 
-test("invalid saved data and blocked storage do not break guides", async ({
+test("exploration controls work without sensors and gracefully fall back without WebGL", async ({
   page,
 }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("reef-journal-v1", "{invalid");
-    localStorage.setItem(
-      "reef-checks-v1",
-      JSON.stringify({ invalid: "<script>" }),
-    );
-    localStorage.setItem("reef-prices-v1", JSON.stringify({ tank: -50 }));
-    Storage.prototype.setItem = () => {
-      throw new Error("Blocked");
-    };
-  });
-  await page.goto("/#care");
-  await expect(
-    page.getByRole("heading", {
-      name: "Reef yang sehat dibangun dari kebiasaan.",
-    }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(/Penyimpanan browser tidak tersedia/),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Setiap pengukuran punya cerita." }),
-  ).toBeVisible();
-});
-
-test("navigation works with browser history and without WebGL", async ({
-  page,
-  isMobile,
-}) => {
-  await page.addInitScript(() => {
-    const original = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function (
-      this: HTMLCanvasElement,
-      type: string,
-      ...args: unknown[]
-    ) {
-      if (type.includes("webgl")) return null;
-      return original.apply(this, [type, ...args] as Parameters<
-        typeof original
-      >);
-    } as typeof original;
-  });
-  await page.goto("/#overview");
-  if (isMobile)
-    await page.getByRole("button", { name: "Buka navigasi" }).click();
-  await page.getByRole("link", { name: "Rancangan teknis" }).click();
-  await expect(
-    page.getByRole("heading", { name: "Kenali setiap sudut tank." }),
-  ).toBeVisible();
-  await page.goBack();
-  await expect(
-    page.getByRole("heading", { name: "Dari desain, menjadi kehidupan." }),
-  ).toBeVisible();
+  await page.addInitScript(disableWebGL);
   await page.goto("/#explore");
+  await expect(
+    page.getByRole("heading", { name: "Masuk ke dunia reef ini." }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "3D tidak tersedia di perangkat ini" }),
   ).toBeVisible({ timeout: 20000 });
-  await page.goto("/#care");
+  await expect(page.locator(".explorer-fallback>img")).toBeVisible();
+  await page.getByRole("button", { name: "Sudut", exact: true }).click();
   await expect(
-    page.getByRole("heading", {
-      name: "Reef yang sehat dibangun dari kebiasaan.",
+    page.getByRole("button", { name: "Sudut", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Moonlight", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Moonlight", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  const fish = page.getByRole("button", { name: "Butterflyfish", exact: true });
+  await fish.click();
+  await expect(fish).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("slider", { name: "Gerakan aliran visual" }).fill("1.5");
+  await expect(page.getByText("150%", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Beri pakan simulasi", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", {
+      name: "Pakan simulasi dijatuhkan",
+      exact: true,
     }),
   ).toBeVisible();
+  await expect(page.getByText("25.6°C")).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
 });
 
-test("print action is named on mobile and printed guides hide navigation", async ({
+test("the design target is available from early tutorial steps and real-world warnings remain", async ({
   page,
 }) => {
-  await page.goto("/#care");
+  await page.addInitScript(disableWebGL);
+  await page.goto("/#tutorial/0");
+  await expect(page.locator(".tutorial-stage")).toHaveAttribute(
+    "data-model",
+    "original-reef",
+  );
   await expect(
-    page.getByRole("button", { name: "Cetak halaman", exact: true }),
+    page.getByRole("link", { name: "Lihat desain akhir di Eksplorasi 3D" }),
   ).toBeVisible();
-  await page.emulateMedia({ media: "print" });
-  await expect(page.locator(".sidebar")).toBeHidden();
-  await expect(page.locator(".topbar")).toBeHidden();
-  await expect(
-    page.getByRole("heading", {
-      name: "Reef yang sehat dibangun dari kebiasaan.",
-    }),
-  ).toBeVisible();
+  await page.goto("/#tutorial/9");
+  await expect(page.locator(".tutorial-safety")).toContainText(
+    "bukan paket penghuni untuk tank 45 cm",
+  );
+  await expect(page.locator(".tutorial-target")).toHaveCount(0);
 });
