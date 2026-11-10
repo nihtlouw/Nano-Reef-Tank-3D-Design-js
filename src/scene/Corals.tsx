@@ -4,7 +4,8 @@ import * as THREE from "three";
 import { fbm3, mulberry32 } from "./noise";
 import { patchMaterial, registerGlow } from "./shaders";
 import { mushroomTexture, zoaTexture, type ZoaColors } from "./textures";
-import { sandHeight, makeRockGeometry } from "./Rockscape";
+import { makeRockGeometry, reefSurfaceAt } from "./Rockscape";
+import { Pipe } from "./Hardware";
 import Anemone from "./Anemone";
 
 /* ---------------- Zoanthid colony ---------------- */
@@ -36,8 +37,14 @@ export function ZoaColony({
   const stalkRef = useRef<THREE.InstancedMesh>(null);
   const discRef = useRef<THREE.InstancedMesh>(null);
   const moundGeo = useMemo(
-    () => makeRockGeometry({ p: [0, 0, 0], s: [radius, radius * 0.45, radius * 0.85], seed: seed + 50, detail: 3 }),
-    [radius, seed]
+    () =>
+      makeRockGeometry({
+        p: [0, 0, 0],
+        s: [radius, radius * 0.45, radius * 0.85],
+        seed: seed + 50,
+        detail: 3,
+      }),
+    [radius, seed],
   );
   const { sg, dg, sm, dm } = useMemo(() => {
     const sg = new THREE.CylinderGeometry(size * 0.55, size * 0.7, len, 8, 3);
@@ -46,10 +53,13 @@ export function ZoaColony({
     dg.rotateX(-Math.PI / 2);
     dg.translate(0, len + 0.002, 0);
     const tex = zoaTexture(cols);
-    const sm = patchMaterial(new THREE.MeshStandardMaterial({ color: stalk, roughness: 0.7 }), {
-      polyp: { len, sway: 0.012 },
-      caustics: 0.5,
-    });
+    const sm = patchMaterial(
+      new THREE.MeshStandardMaterial({ color: stalk, roughness: 0.7 }),
+      {
+        polyp: { len, sway: 0.012 },
+        caustics: 0.5,
+      },
+    );
     const dm = patchMaterial(
       registerGlow(
         new THREE.MeshStandardMaterial({
@@ -62,9 +72,9 @@ export function ZoaColony({
           roughness: 0.5,
           side: THREE.DoubleSide,
         }),
-        0.85
+        0.85,
       ),
-      { polyp: { len, sway: 0.012 } }
+      { polyp: { len, sway: 0.012 } },
     );
     return { sg, dg, sm, dm };
   }, [cols, size, len, stalk]);
@@ -74,14 +84,32 @@ export function ZoaColony({
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const up = new THREE.Vector3(0, 1, 0);
+    const surface = new THREE.Mesh(moundGeo);
+    surface.updateMatrixWorld();
+    const ray = new THREE.Raycaster();
     for (let i = 0; i < count; i++) {
       const a = r() * Math.PI * 2;
       const e = Math.sqrt(r()) * 1.15;
       const nx = Math.sin(e) * Math.cos(a);
       const nz = Math.sin(e) * Math.sin(a);
       const ny = Math.cos(e);
-      const p = new THREE.Vector3(nx * radius * 0.85, mound ? ny * radius * 0.42 : 0, nz * radius * 0.75);
+      const p = new THREE.Vector3(
+        nx * radius * 0.85,
+        mound ? ny * radius * 0.42 : 0,
+        nz * radius * 0.75,
+      );
       const n = new THREE.Vector3(nx * 0.8, ny + 0.3, nz * 0.8).normalize();
+      if (mound) {
+        ray.set(
+          new THREE.Vector3(p.x, radius * 2, p.z),
+          new THREE.Vector3(0, -1, 0),
+        );
+        const hit = ray.intersectObject(surface)[0];
+        if (hit) {
+          p.copy(hit.point);
+          if (hit.face) n.copy(hit.face.normal);
+        }
+      }
       q.setFromUnitVectors(up, n);
       const s = 0.75 + r() * 0.45;
       m.compose(p, q, new THREE.Vector3(s, 0.7 + r() * 0.7, s));
@@ -90,7 +118,7 @@ export function ZoaColony({
     }
     stalkRef.current!.instanceMatrix.needsUpdate = true;
     discRef.current!.instanceMatrix.needsUpdate = true;
-  }, [count, radius, seed, mound]);
+  }, [count, radius, seed, mound, moundGeo]);
 
   return (
     <group position={position} rotation={rotation}>
@@ -99,8 +127,17 @@ export function ZoaColony({
           <meshStandardMaterial vertexColors roughness={0.95} />
         </mesh>
       )}
-      <instancedMesh ref={stalkRef} args={[sg, sm, count]} frustumCulled={false} castShadow />
-      <instancedMesh ref={discRef} args={[dg, dm, count]} frustumCulled={false} />
+      <instancedMesh
+        ref={stalkRef}
+        args={[sg, sm, count]}
+        frustumCulled={false}
+        castShadow
+      />
+      <instancedMesh
+        ref={discRef}
+        args={[dg, dm, count]}
+        frustumCulled={false}
+      />
     </group>
   );
 }
@@ -127,7 +164,7 @@ export function Mushroom({
 }: MushProps) {
   const ref = useRef<THREE.Group>(null);
   const { geo, mat } = useMemo(() => {
-    const g = new THREE.SphereGeometry(1, 64, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+    const g = new THREE.SphereGeometry(1, 64, 20, 0, Math.PI * 2, 0, Math.PI);
     const p = g.attributes.position as THREE.BufferAttribute;
     const uv = g.attributes.uv as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i++) {
@@ -136,8 +173,15 @@ export function Mushroom({
       const z = p.getZ(i);
       const a = Math.atan2(z, x);
       const rim = 1 - y;
-      const wav = Math.sin(a * 7 + seed) * 0.06 * rim * rim + fbm3(x * 2 + seed, 0, z * 2, 2) * 0.08 * rim;
-      p.setXYZ(i, x * (1 + wav * 0.3), y * 0.28 + wav, z * (1 + wav * 0.3));
+      const wav =
+        Math.sin(a * 7 + seed) * 0.06 * rim * rim +
+        fbm3(x * 2 + seed, 0, z * 2, 2) * 0.08 * rim;
+      p.setXYZ(
+        i,
+        x * (1 + wav * 0.3),
+        y * (y >= 0 ? 0.28 : 0.055) + wav,
+        z * (1 + wav * 0.3),
+      );
       uv.setXY(i, 0.5 + x * 0.5, 0.5 + z * 0.5);
     }
     g.computeVertexNormals();
@@ -152,9 +196,9 @@ export function Mushroom({
           roughness: 0.55,
           side: THREE.DoubleSide,
         }),
-        0.42
+        0.42,
       ),
-      { caustics: 0.6 }
+      { caustics: 0.6 },
     );
     return { geo: g, mat: m };
   }, [base, bump, center, seed]);
@@ -179,9 +223,15 @@ export function Mushroom({
 }
 
 /* ---------------- Lobophyllia / brain ---------------- */
-export function Lobo({ position, rotation = [0, 0, 0] }: { position: [number, number, number]; rotation?: [number, number, number] }) {
+export function Lobo({
+  position,
+  rotation = [0, 0, 0],
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
   const { geo, mat } = useMemo(() => {
-    const g = new THREE.SphereGeometry(1, 40, 20, 0, Math.PI * 2, 0, Math.PI / 2);
+    const g = new THREE.SphereGeometry(1, 40, 20, 0, Math.PI * 2, 0, Math.PI);
     const p = g.attributes.position as THREE.BufferAttribute;
     const col = new Float32Array(p.count * 3);
     const c = new THREE.Color();
@@ -196,28 +246,51 @@ export function Lobo({ position, rotation = [0, 0, 0] }: { position: [number, nu
       // fleshy rim: dip in the middle
       const r = Math.sqrt(x * x + z * z);
       const dip = Math.exp(-r * r * 6) * 0.45;
-      p.setY(i, y * 0.75 - dip * y);
+      const angle = Math.atan2(z, x);
+      const septa =
+        Math.sin(angle * 28 + r * 7) *
+        0.045 *
+        Math.sin(Math.PI * Math.min(1, r));
+      p.setY(i, y >= 0 ? y * 0.75 - dip * y + septa : y * 0.13);
       if (r > 0.82) c.copy(wall).lerp(rim, (1 - r) * 4);
       else if (r > 0.55) c.copy(rim).lerp(mid, (0.82 - r) * 2.5);
       else c.copy(mid).lerp(ctr, (0.55 - r) * 1.8);
+      c.multiplyScalar(0.82 + 0.18 * Math.cos(angle * 28 + r * 7));
       col.set([c.r, c.g, c.b], i * 3);
     }
     g.setAttribute("color", new THREE.BufferAttribute(col, 3));
     g.computeVertexNormals();
     const m = patchMaterial(
       registerGlow(
-        new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, emissive: "#ffffff", emissiveIntensity: 0.35 }),
-        0.18
+        new THREE.MeshStandardMaterial({
+          vertexColors: true,
+          roughness: 0.4,
+          emissive: "#17455b",
+          emissiveIntensity: 0.35,
+        }),
+        0.18,
       ),
-      { caustics: 0.5 }
+      { caustics: 0.5 },
     );
-    // emissive should follow vertex colours -> use a low-level trick: emissive white * small intensity
     return { geo: g, mat: m };
   }, []);
   return (
     <group position={position} rotation={rotation}>
-      <mesh geometry={geo} material={mat} position={[-0.13, 0, 0]} scale={[0.15, 0.13, 0.14]} castShadow />
-      <mesh geometry={geo} material={mat} position={[0.13, 0, 0.01]} scale={[0.15, 0.14, 0.14]} rotation={[0, 1, 0]} castShadow />
+      <mesh
+        geometry={geo}
+        material={mat}
+        position={[-0.13, 0, 0]}
+        scale={[0.15, 0.13, 0.14]}
+        castShadow
+      />
+      <mesh
+        geometry={geo}
+        material={mat}
+        position={[0.13, 0, 0.01]}
+        scale={[0.15, 0.14, 0.14]}
+        rotation={[0, 1, 0]}
+        castShadow
+      />
     </group>
   );
 }
@@ -227,52 +300,128 @@ function Torch({ position }: { position: [number, number, number] }) {
   const heads = useMemo(() => {
     const r = mulberry32(5);
     return Array.from({ length: 4 }).map((_, i) => ({
-      p: [(r() - 0.5) * 0.32, 0.12 + r() * 0.12, (r() - 0.5) * 0.25] as [number, number, number],
-      rot: [(r() - 0.5) * 0.6, 0, (r() - 0.5) * 0.6] as [number, number, number],
+      p: [(r() - 0.5) * 0.32, 0.12 + r() * 0.12, (r() - 0.5) * 0.25] as [
+        number,
+        number,
+        number,
+      ],
+      rot: [(r() - 0.5) * 0.6, 0, (r() - 0.5) * 0.6] as [
+        number,
+        number,
+        number,
+      ],
       seed: i + 20,
     }));
   }, []);
   return (
     <group position={position}>
       {heads.map((h, i) => (
-        <Anemone
-          key={i}
-          position={h.p}
-          rotation={h.rot}
-          radius={0.1}
-          count={46}
-          length={0.2}
-          color="#3fe07a"
-          tip="#e9ff6a"
-          disc="#1f6a3a"
-          seed={h.seed}
-          droop={0.05}
-        />
+        <group key={i}>
+          <Pipe
+            radius={0.028}
+            color="#8e8277"
+            points={[
+              [0, -0.03, 0],
+              [h.p[0] * 0.5, h.p[1] * 0.4, h.p[2] * 0.5],
+              [h.p[0], h.p[1] - 0.05, h.p[2]],
+            ]}
+          />
+          <Anemone
+            key={i}
+            position={h.p}
+            rotation={h.rot}
+            radius={0.1}
+            count={46}
+            length={0.2}
+            color="#3fe07a"
+            tip="#e9ff6a"
+            disc="#1f6a3a"
+            seed={h.seed}
+            droop={0.05}
+          />
+        </group>
       ))}
     </group>
   );
 }
 
-const RADIOACTIVE: ZoaColors = { mouth: "#ff5a12", disc: "#ff7a1a", ring: "#d4ff2a", rim: "#9cff22" };
-const SUNNY: ZoaColors = { mouth: "#3a1a08", disc: "#ff9a1a", ring: "#ffe23a", rim: "#d6ff3a" };
-const PURPLE: ZoaColors = { mouth: "#ffe84a", disc: "#c33cff", ring: "#ff9ae6", rim: "#7aff7a" };
-const DUNCAN: ZoaColors = { mouth: "#0d5a2a", disc: "#5aff6a", ring: "#2affa0", rim: "#d8ff5a" };
-const ACAN: ZoaColors = { mouth: "#1a2a8a", disc: "#2a8aff", ring: "#3affd0", rim: "#ffe23a" };
+const RADIOACTIVE: ZoaColors = {
+  mouth: "#ff5a12",
+  disc: "#ff7a1a",
+  ring: "#d4ff2a",
+  rim: "#9cff22",
+};
+const SUNNY: ZoaColors = {
+  mouth: "#3a1a08",
+  disc: "#ff9a1a",
+  ring: "#ffe23a",
+  rim: "#d6ff3a",
+};
+const PURPLE: ZoaColors = {
+  mouth: "#ffe84a",
+  disc: "#c33cff",
+  ring: "#ff9ae6",
+  rim: "#7aff7a",
+};
+const DUNCAN: ZoaColors = {
+  mouth: "#0d5a2a",
+  disc: "#5aff6a",
+  ring: "#2affa0",
+  rim: "#d8ff5a",
+};
+const ACAN: ZoaColors = {
+  mouth: "#1a2a8a",
+  disc: "#2a8aff",
+  ring: "#3affd0",
+  rim: "#ffe23a",
+};
 
 export default function Corals() {
-  const sh = (x: number, z: number) => sandHeight(x, z);
+  const sh = (x: number, z: number) => reefSurfaceAt(x, z);
   return (
     <group>
       {/* Zoanthid colonies */}
-      <ZoaColony position={[-1.95, sh(-1.95, 0.95) + 0.02, 0.95]} cols={RADIOACTIVE} count={30} radius={0.3} seed={1} />
-      <ZoaColony position={[1.45, sh(1.45, 1.05) + 0.02, 1.05]} cols={SUNNY} count={20} radius={0.24} seed={2} />
-      <ZoaColony position={[2.05, sh(2.05, 0.9) + 0.02, 0.92]} cols={SUNNY} count={26} radius={0.28} seed={3} />
-      <ZoaColony position={[-1.05, 1.18, -0.02]} rotation={[0.35, 0, 0.1]} cols={PURPLE} count={18} radius={0.22} seed={4} />
-      <ZoaColony position={[1.55, 1.02, -0.08]} rotation={[0.4, 0, -0.2]} cols={RADIOACTIVE} count={14} radius={0.18} seed={6} />
+      <ZoaColony
+        position={[-1.95, sh(-1.95, 0.95) + 0.02, 0.95]}
+        cols={RADIOACTIVE}
+        count={30}
+        radius={0.3}
+        seed={1}
+      />
+      <ZoaColony
+        position={[1.45, sh(1.45, 1.05) + 0.02, 1.05]}
+        cols={SUNNY}
+        count={20}
+        radius={0.24}
+        seed={2}
+      />
+      <ZoaColony
+        position={[2.05, sh(2.05, 0.9) + 0.02, 0.92]}
+        cols={SUNNY}
+        count={26}
+        radius={0.28}
+        seed={3}
+      />
+      <ZoaColony
+        position={[-1.05, sh(-1.05, -0.02) + 0.025, -0.02]}
+        rotation={[0.35, 0, 0.1]}
+        cols={PURPLE}
+        count={18}
+        radius={0.22}
+        seed={4}
+      />
+      <ZoaColony
+        position={[1.55, sh(1.55, -0.08) + 0.025, -0.08]}
+        rotation={[0.4, 0, -0.2]}
+        cols={RADIOACTIVE}
+        count={14}
+        radius={0.18}
+        seed={6}
+      />
 
       {/* Duncan on stalks */}
       <ZoaColony
-        position={[-1.38, 0.95, 0.2]}
+        position={[-1.38, sh(-1.38, 0.2) + 0.02, 0.2]}
         rotation={[0.3, 0, 0]}
         cols={DUNCAN}
         count={3}
@@ -294,18 +443,62 @@ export default function Corals() {
       />
 
       {/* Mushrooms */}
-      <Mushroom position={[-0.35, sh(-0.35, 0.95) + 0.02, 0.95]} radius={0.42} seed={1} />
-      <Mushroom position={[1.62, 0.72, 0.28]} rotation={[0.5, 0, -0.35]} radius={0.24} base="#ffa070" bump="#ffd2a0" center="#d8682a" seed={2} />
-      <Mushroom position={[2.05, 0.95, -0.55]} rotation={[0.4, 0, -0.6]} radius={0.27} base="#ff9a6a" bump="#ffd8b0" center="#c8582a" seed={3} />
-      <Mushroom position={[2.6, 0.95, -0.7]} rotation={[0.2, 0, -0.9]} radius={0.3} base="#ffa77a" bump="#ffe0c0" center="#d0602a" seed={4} />
-      <Mushroom position={[2.6, sh(2.6, 0.35) + 0.25, 0.35]} rotation={[0.2, 0, -0.5]} radius={0.22} base="#ffa77a" bump="#ffe0c0" center="#d0602a" seed={5} />
-      <Mushroom position={[1.7, sh(1.7, 0.4) + 0.06, 0.55]} rotation={[0.5, 0, 0]} radius={0.2} base="#ff8a5a" bump="#ffc890" center="#c0401a" seed={6} />
+      <Mushroom
+        position={[-0.35, sh(-0.35, 0.95) + 0.02, 0.95]}
+        radius={0.42}
+        seed={1}
+      />
+      <Mushroom
+        position={[1.62, sh(1.62, 0.28) + 0.03, 0.28]}
+        rotation={[0.5, 0, -0.35]}
+        radius={0.24}
+        base="#ffa070"
+        bump="#ffd2a0"
+        center="#d8682a"
+        seed={2}
+      />
+      <Mushroom
+        position={[2.05, sh(2.05, -0.55) + 0.03, -0.55]}
+        rotation={[0.4, 0, -0.6]}
+        radius={0.27}
+        base="#ff9a6a"
+        bump="#ffd8b0"
+        center="#c8582a"
+        seed={3}
+      />
+      <Mushroom
+        position={[2.6, sh(2.6, -0.7) + 0.03, -0.7]}
+        rotation={[0.2, 0, -0.9]}
+        radius={0.3}
+        base="#ffa77a"
+        bump="#ffe0c0"
+        center="#d0602a"
+        seed={4}
+      />
+      <Mushroom
+        position={[2.6, sh(2.6, 0.35) + 0.03, 0.35]}
+        rotation={[0.2, 0, -0.5]}
+        radius={0.22}
+        base="#ffa77a"
+        bump="#ffe0c0"
+        center="#d0602a"
+        seed={5}
+      />
+      <Mushroom
+        position={[1.7, sh(1.7, 0.4) + 0.06, 0.55]}
+        rotation={[0.5, 0, 0]}
+        radius={0.2}
+        base="#ff8a5a"
+        bump="#ffc890"
+        center="#c0401a"
+        seed={6}
+      />
 
       {/* Brain */}
       <Lobo position={[0.45, sh(0.45, 1.0) + 0.02, 1.0]} />
 
       {/* Torch cluster on the right back rock */}
-      <Torch position={[2.25, 1.22, -1.0]} />
+      <Torch position={[2.25, sh(2.25, -1) + 0.03, -1.0]} />
     </group>
   );
 }

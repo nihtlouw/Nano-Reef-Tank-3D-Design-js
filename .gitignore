@@ -6,3 +6,6 @@ dist/
 !.env.example
 test-results/
 playwright-report/
+
+# Local visual audit frames (not application assets)
+.cache/

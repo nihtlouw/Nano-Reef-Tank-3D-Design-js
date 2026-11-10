@@ -81,13 +81,19 @@ function bodyColor(v: FishVariant, t: number, th: number, out: THREE.Color) {
 
 function finColor(v: FishVariant, s: number, out: THREE.Color) {
   if (v === "goby") return out.copy(C.yellow).lerp(C.blue, s > 0.88 ? 0.6 : 0);
-  if (v === "black") return out.copy(s > 0.75 ? C.black : C.dark).lerp(C.orange, s < 0.25 ? 0.25 : 0);
+  if (v === "black")
+    return out
+      .copy(s > 0.75 ? C.black : C.dark)
+      .lerp(C.orange, s < 0.25 ? 0.25 : 0);
   if (s > 0.8) return out.copy(C.black);
   if (s > 0.74 && v === "snowflake") return out.copy(C.white);
   return out.copy(C.orange);
 }
 
-function withColor(g: THREE.BufferGeometry, fn: (p: THREE.Vector3, i: number) => THREE.Color) {
+function withColor(
+  g: THREE.BufferGeometry,
+  fn: (p: THREE.Vector3, i: number) => THREE.Color,
+) {
   const p = g.attributes.position;
   const col = new Float32Array(p.count * 3);
   const v = new THREE.Vector3();
@@ -125,9 +131,16 @@ function bodyGeometry(v: FishVariant) {
     for (let j = 0; j < NR; j++) {
       const a = i * (NR + 1) + j;
       const b = a + NR + 1;
-      idx.push(a, b, a + 1, a + 1, b, b + 1);
+      idx.push(a, a + 1, b, a + 1, b + 1, b);
     }
   }
+  // Close the snout with the same colour as the head; no open tube end.
+  const cap = pos.length / 3;
+  pos.push(0, 0, zOf(1));
+  bodyColor(v, 1, 0, c);
+  col.push(c.r, c.g, c.b);
+  for (let j = 0; j < NR; j++)
+    idx.push(cap, NT * (NR + 1) + j, NT * (NR + 1) + j + 1);
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
@@ -136,7 +149,12 @@ function bodyGeometry(v: FishVariant) {
   return g;
 }
 
-function finGrid(base: THREE.Vector3[], outer: THREE.Vector3[], rows: number, v: FishVariant) {
+function finGrid(
+  base: THREE.Vector3[],
+  outer: THREE.Vector3[],
+  rows: number,
+  v: FishVariant,
+) {
   const pos: number[] = [];
   const col: number[] = [];
   const idx: number[] = [];
@@ -173,8 +191,15 @@ function dorsal(v: FishVariant) {
   for (let i = 0; i <= N; i++) {
     const t = 0.27 + (i / N) * 0.5;
     let h: number;
-    if (t < 0.53) h = 0.15 * Math.pow(Math.sin((Math.PI * (t - 0.27)) / 0.26), 0.6);
-    else h = 0.085 * Math.pow(Math.sin((Math.PI * (t - 0.53)) / 0.24), 0.5) * (0.82 + 0.18 * Math.abs(Math.sin(t * 90)));
+    if (t < 0.53)
+      h =
+        0.15 *
+        Math.pow(Math.max(0, Math.sin((Math.PI * (t - 0.27)) / 0.26)), 0.6);
+    else
+      h =
+        0.085 *
+        Math.pow(Math.max(0, Math.sin((Math.PI * (t - 0.53)) / 0.24)), 0.5) *
+        (0.82 + 0.18 * Math.abs(Math.sin(t * 90)));
     if (v === "goby") h *= 1.3;
     const b = new THREE.Vector3(0, yTop(t) - 0.012, zOf(t));
     base.push(b);
@@ -189,7 +214,9 @@ function anal(v: FishVariant) {
   const N = 16;
   for (let i = 0; i <= N; i++) {
     const t = 0.24 + (i / N) * 0.22;
-    const h = 0.12 * Math.pow(Math.sin((Math.PI * (t - 0.24)) / 0.22), 0.6);
+    const h =
+      0.12 *
+      Math.pow(Math.max(0, Math.sin((Math.PI * (t - 0.24)) / 0.22)), 0.6);
     const b = new THREE.Vector3(0, yBot(t) + 0.012, zOf(t));
     base.push(b);
     outer.push(b.clone().add(new THREE.Vector3(0, -h, -h * 0.45)));
@@ -206,9 +233,21 @@ function caudal(v: FishVariant) {
   for (let i = 0; i <= N; i++) {
     const u = i / N;
     const a = THREE.MathUtils.lerp(-1.05, 1.05, u);
-    base.push(new THREE.Vector3(0, THREE.MathUtils.lerp(-ph * 0.9, ph * 0.9, u), z0 + 0.02));
+    base.push(
+      new THREE.Vector3(
+        0,
+        THREE.MathUtils.lerp(-ph * 0.9, ph * 0.9, u),
+        z0 + 0.02,
+      ),
+    );
     const rr = v === "goby" ? 0.22 : 0.19;
-    outer.push(new THREE.Vector3(0, Math.sin(a) * rr, z0 - Math.cos(a) * rr * 0.95 - 0.02));
+    outer.push(
+      new THREE.Vector3(
+        0,
+        Math.sin(a) * rr,
+        z0 - Math.cos(a) * rr * 0.95 - 0.02,
+      ),
+    );
   }
   return finGrid(base, outer, 7, v);
 }
@@ -219,7 +258,7 @@ function pelvic(v: FishVariant, side: number) {
   const N = 6;
   for (let i = 0; i <= N; i++) {
     const t = 0.58 + (i / N) * 0.07;
-    const h = 0.08 * Math.sin((Math.PI * (i / N)) * 0.9 + 0.2);
+    const h = 0.08 * Math.sin(Math.PI * (i / N) * 0.9 + 0.2);
     const b = new THREE.Vector3(side * 0.02, yBot(t) + 0.015, zOf(t));
     base.push(b);
     outer.push(b.clone().add(new THREE.Vector3(side * h * 0.35, -h, -h * 0.7)));
@@ -249,15 +288,29 @@ function eye(side: number) {
   return withColor(g, (p) => {
     // dark pupil facing outward, golden ring
     const outward = (p.x - side * (Wd / 2) * r * 0.78) * side;
-    return outward > 0.022 ? C.black : outward > 0.0 ? new THREE.Color("#d88a2a") : C.black;
+    return outward > 0.022
+      ? C.black
+      : outward > 0.0
+        ? new THREE.Color("#d88a2a")
+        : C.black;
   });
 }
 
 const cache = new Map<FishVariant, THREE.BufferGeometry>();
 export function fishGeometry(v: FishVariant) {
   if (cache.has(v)) return cache.get(v)!;
-  const parts = [bodyGeometry(v), dorsal(v), anal(v), caudal(v), pelvic(v, 1), pelvic(v, -1), eye(1), eye(-1)];
-  const g = mergeGeometries(parts.map((p) => (p.index ? p : p)))!;
+  const parts = [
+    bodyGeometry(v),
+    dorsal(v),
+    anal(v),
+    caudal(v),
+    pelvic(v, 1),
+    pelvic(v, -1),
+    eye(1),
+    eye(-1),
+  ];
+  const g = mergeGeometries(parts)!;
+  parts.forEach((part) => part.dispose());
   g.computeBoundingSphere();
   cache.set(v, g);
   return g;

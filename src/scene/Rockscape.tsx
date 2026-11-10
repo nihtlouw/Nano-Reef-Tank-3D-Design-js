@@ -3,6 +3,8 @@ import * as THREE from "three";
 import { TANK } from "../store";
 import { fbm3, mulberry32, noise3 } from "./noise";
 import { patchMaterial, registerGlow } from "./shaders";
+import { MeshSurfaceSampler } from "three/examples/jsm/math/MeshSurfaceSampler.js";
+import { sandSkirtGeometry, starPolypGeometry } from "./geometry";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { sandSideTexture, sandTexture } from "./textures";
 
@@ -41,29 +43,10 @@ function Sand() {
     [],
   );
   // front cross-section of the sand bed (visible through the glass)
-  const sideGeo = useMemo(() => {
-    const seg = 120;
-    const pos: number[] = [];
-    const uv: number[] = [];
-    const idx: number[] = [];
-    const z = D / 2 - 0.04;
-    for (let i = 0; i <= seg; i++) {
-      const x = -W / 2 + 0.04 + (i / seg) * (W - 0.08);
-      const top = sandHeight(x, z);
-      pos.push(x, -0.06, z, x, top, z);
-      uv.push(i / seg, 0, i / seg, top / 0.5);
-    }
-    for (let i = 0; i < seg; i++) {
-      const a = i * 2;
-      idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
-    g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    return g;
-  }, []);
+  const sideGeo = useMemo(
+    () => sandSkirtGeometry(W - 0.08, D - 0.08, sandHeight),
+    [],
+  );
 
   return (
     <group>
@@ -157,13 +140,13 @@ export const ROCKS: RockDef[] = [
     p: [-2.2, 0.85, -1.15],
     s: [0.7, 0.85, 0.5],
     seed: 9,
-    coat: { color: "#5dff6a", count: 1600, len: 0.07 },
+    coat: { color: "#5dff6a", count: 850, len: 0.07 },
   },
   {
     p: [-1.45, 1.15, -1.25],
     s: [0.6, 1.0, 0.45],
     seed: 10,
-    coat: { color: "#8dff4a", count: 1500, len: 0.075 },
+    coat: { color: "#8dff4a", count: 780, len: 0.075 },
   },
   { p: [2.3, 0.7, -1.05], s: [0.62, 0.62, 0.5], seed: 11 },
   { p: [2.55, 0.45, 0.2], s: [0.35, 0.3, 0.32], seed: 12 },
@@ -179,10 +162,10 @@ const CORALLINE = [
   new THREE.Color("#4f5f37"),
 ];
 
-export function makeRockGeometry(def: RockDef) {
+export function makeRockGeometry(def: RockDef, mature = true) {
   let g: THREE.BufferGeometry = new THREE.IcosahedronGeometry(
     1,
-    def.detail ?? 4,
+    Math.max(9, def.detail ?? 9),
   );
   g.deleteAttribute("normal");
   g.deleteAttribute("uv");
@@ -219,6 +202,11 @@ export function makeRockGeometry(def: RockDef) {
     const algae = noise3(v.x * 2 + 9 + o, v.y * 2, v.z * 2);
     if (algae > 0.35 && v.y > 0) c.lerp(CORALLINE[5], 0.5);
     if (algae < -0.45) c.lerp(CORALLINE[4], 0.5);
+    if (!mature)
+      c.set("#b2a58d").lerp(
+        new THREE.Color("#756e62"),
+        THREE.MathUtils.clamp(n2 * 0.6 + Math.max(0, hole) * 0.8, 0, 1),
+      );
     colors.set([c.r, c.g, c.b], i * 3);
   }
   g.setAttribute("color", new THREE.BufferAttribute(colors, 3));
@@ -257,8 +245,7 @@ function PolypCoat({
   const { stalkGeo, tipGeo, stalkMat, tipMat } = useMemo(() => {
     const sg = new THREE.CylinderGeometry(0.007, 0.011, len, 5, 4);
     sg.translate(0, len / 2, 0);
-    const tg = new THREE.ConeGeometry(0.03, 0.012, 7, 1);
-    tg.translate(0, len, 0);
+    const tg = starPolypGeometry(len);
     const sm = patchMaterial(
       new THREE.MeshStandardMaterial({
         color: "#5a2a6a",
@@ -276,7 +263,7 @@ function PolypCoat({
           emissiveIntensity: 1,
           roughness: 0.6,
         }),
-        0.9,
+        0.38,
       ),
       { polyp: { len, sway: 0.02 } },
     );
@@ -284,9 +271,10 @@ function PolypCoat({
   }, [color, len]);
 
   useLayoutEffect(() => {
-    const p = geo.attributes.position as THREE.BufferAttribute;
-    const n = geo.attributes.normal as THREE.BufferAttribute;
     const r = mulberry32(seed);
+    const sampler = new MeshSurfaceSampler(new THREE.Mesh(geo))
+      .setRandomGenerator(r)
+      .build();
     const m = new THREE.Matrix4();
     const q = new THREE.Quaternion();
     const up = new THREE.Vector3(0, 1, 0);
@@ -296,14 +284,9 @@ function PolypCoat({
     let tries = 0;
     while (placed < count && tries < count * 20) {
       tries++;
-      const i = Math.floor(r() * p.count);
-      nor.fromBufferAttribute(n, i);
+      sampler.sample(pos, nor);
       if (nor.y < -0.15 || nor.z < -0.5) continue;
-      pos.fromBufferAttribute(p, i);
-      pos.x += (r() - 0.5) * 0.04;
-      pos.z += (r() - 0.5) * 0.04;
-      nor.x += (r() - 0.5) * 0.4;
-      nor.z += (r() - 0.5) * 0.4;
+      pos.addScaledVector(nor, 0.002);
       nor.normalize();
       q.setFromUnitVectors(up, nor);
       const s = 0.7 + r() * 0.6;
@@ -335,7 +318,7 @@ function PolypCoat({
 }
 
 function Rock({ def, life }: { def: RockDef; life: boolean }) {
-  const geo = useMemo(() => makeRockGeometry(def), [def]);
+  const geo = useMemo(() => makeRockGeometry(def, life), [def, life]);
   return (
     <group position={def.p}>
       <mesh geometry={geo} material={getRockMat()} castShadow receiveShadow />
@@ -360,5 +343,58 @@ export default function Rockscape({ life = true }: { life?: boolean }) {
         <Rock key={i} def={r} life={life} />
       ))}
     </group>
+  );
+}
+
+// Shared collision/attachment height field, sampled once and bilinearly interpolated.
+// It uses the actual displaced rock triangles, not their ellipsoid bounds.
+let surfaceGrid: Float32Array | null = null;
+const GRID_X = 100,
+  GRID_Z = 64;
+export function reefSurfaceAt(x: number, z: number) {
+  if (!surfaceGrid) {
+    surfaceGrid = new Float32Array((GRID_X + 1) * (GRID_Z + 1));
+    const meshes = ROCKS.map((def) => {
+      const m = new THREE.Mesh(makeRockGeometry(def));
+      m.position.set(...def.p);
+      m.updateMatrixWorld();
+      return m;
+    });
+    const ray = new THREE.Raycaster();
+    for (let j = 0; j <= GRID_Z; j++)
+      for (let i = 0; i <= GRID_X; i++) {
+        const px = -W / 2 + (i / GRID_X) * W,
+          pz = -D / 2 + (j / GRID_Z) * D;
+        ray.set(new THREE.Vector3(px, 5, pz), new THREE.Vector3(0, -1, 0));
+        const hit = ray.intersectObjects(meshes, false)[0];
+        surfaceGrid[j * (GRID_X + 1) + i] = Math.max(
+          sandHeight(px, pz),
+          hit?.point.y ?? 0,
+        );
+      }
+    meshes.forEach((m) => {
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    });
+  }
+  const gx = THREE.MathUtils.clamp(
+      ((x + W / 2) / W) * GRID_X,
+      0,
+      GRID_X - 0.001,
+    ),
+    gz = THREE.MathUtils.clamp(((z + D / 2) / D) * GRID_Z, 0, GRID_Z - 0.001);
+  const i = Math.floor(gx),
+    j = Math.floor(gz),
+    t = gx - i,
+    u = gz - j,
+    k = j * (GRID_X + 1) + i;
+  return THREE.MathUtils.lerp(
+    THREE.MathUtils.lerp(surfaceGrid[k], surfaceGrid[k + 1], t),
+    THREE.MathUtils.lerp(
+      surfaceGrid[k + GRID_X + 1],
+      surfaceGrid[k + GRID_X + 2],
+      t,
+    ),
+    u,
   );
 }

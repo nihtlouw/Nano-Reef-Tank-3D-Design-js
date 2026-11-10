@@ -2,8 +2,9 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { TANK } from "../store";
-import { backdropTexture, ledPanelTexture, rayTexture } from "./textures";
+import { backdropTexture, rayTexture } from "./textures";
 import BuildMotion from "./BuildMotion";
+import { LightHardware, Filter, Pump, Heater } from "./Hardware";
 import { globalUniforms } from "./shaders";
 
 const { w: W, h: H, d: D, water: WATER } = TANK;
@@ -75,10 +76,10 @@ export function Glass() {
       ))}
       {/* black trim: bottom & top frame like the reference */}
       {[
-        { p: [0, -0.04, D / 2 + 0.02], s: [W + 0.08, 0.16, 0.05] },
-        { p: [0, -0.04, -D / 2 - 0.02], s: [W + 0.08, 0.16, 0.05] },
-        { p: [-W / 2 - 0.02, -0.04, 0], s: [0.05, 0.16, D + 0.08] },
-        { p: [W / 2 + 0.02, -0.04, 0], s: [0.05, 0.16, D + 0.08] },
+        { p: [0, 0, D / 2 + 0.02], s: [W + 0.08, 0.16, 0.05] },
+        { p: [0, 0, -D / 2 - 0.02], s: [W + 0.08, 0.16, 0.05] },
+        { p: [-W / 2 - 0.02, 0, 0], s: [0.05, 0.16, D + 0.08] },
+        { p: [W / 2 + 0.02, 0, 0], s: [0.05, 0.16, D + 0.08] },
         { p: [0, H - 0.08, D / 2 + 0.02], s: [W + 0.08, 0.07, 0.05] },
         { p: [0, H - 0.08, -D / 2 - 0.02], s: [W + 0.08, 0.07, 0.05] },
         { p: [-W / 2 - 0.02, H - 0.08, 0], s: [0.05, 0.07, D + 0.08] },
@@ -102,7 +103,7 @@ export function Glass() {
         </mesh>
       ))}
       {/* bottom pane */}
-      <mesh position={[0, -0.08, 0]} receiveShadow>
+      <mesh position={[0, -0.06, 0]} receiveShadow>
         <boxGeometry args={[W, 0.04, D]} />
         <meshStandardMaterial color="#0a0f18" />
       </mesh>
@@ -121,6 +122,7 @@ function Backdrop() {
         emissiveIntensity={0.35}
         roughness={0.7}
         metalness={0.2}
+        side={THREE.DoubleSide}
       />
     </mesh>
   );
@@ -147,14 +149,15 @@ function WaterSurface({ height = WATER }: { height?: number }) {
     const m = new THREE.MeshPhysicalMaterial({
       color: "#a8d4ff",
       transparent: true,
-      opacity: 0.55,
-      roughness: 0.04,
-      metalness: 0.35,
-      envMapIntensity: 2.2,
+      opacity: 0.18,
+      roughness: 0.36,
+      metalness: 0,
+      specularIntensity: 0.03,
+      envMapIntensity: 0.15,
       side: THREE.DoubleSide,
       depthWrite: false,
       emissive: "#2244aa",
-      emissiveIntensity: 0.25,
+      emissiveIntensity: 0,
     });
     m.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = globalUniforms.uTime;
@@ -184,7 +187,7 @@ function WaterSurface({ height = WATER }: { height?: number }) {
         )
         .replace(
           "#include <begin_vertex>",
-          "vec3 transformed = vec3(position); transformed.z += h0 * (0.6 + 0.6*uFlow);",
+          "vec3 transformed = vec3(position); float edge = smoothstep(0.0, 0.18, min(2.96-abs(position.x), 1.76-abs(position.y))); transformed.z += h0 * edge * (0.6 + 0.6*uFlow);",
         );
     };
     return m;
@@ -201,141 +204,15 @@ function WaterSurface({ height = WATER }: { height?: number }) {
   );
 }
 
-export function LightFixture() {
-  const led = useMemo(() => ledPanelTexture(), []);
-  const black = (
-    <meshStandardMaterial color="#0b0c10" roughness={0.4} metalness={0.5} />
-  );
-  return (
-    <group>
-      {/* light bar */}
-      <group position={[0, H + 0.45, -0.1]}>
-        <mesh>
-          <boxGeometry args={[W - 0.5, 0.1, 0.75]} />
-          {black}
-        </mesh>
-        <mesh position={[0, -0.052, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[W - 0.7, 0.6]} />
-          <meshBasicMaterial map={led} toneMapped={false} color="#b0c4ff" />
-        </mesh>
-        {/* soft glow under the bar */}
-        <mesh position={[0, -0.07, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[W - 0.2, 1.1]} />
-          <meshBasicMaterial
-            color="#3a5cff"
-            transparent
-            opacity={0.25}
-            toneMapped={false}
-            depthWrite={false}
-          />
-        </mesh>
-      </group>
-      {/* mounting arm (behind the tank) */}
-      <mesh position={[0, H + 2.5, -D / 2 - 0.25]}>
-        <boxGeometry args={[0.18, 4.6, 0.12]} />
-        {black}
-      </mesh>
-      <mesh position={[0, H + 0.48, -D / 2 - 0.05]}>
-        <boxGeometry args={[0.18, 0.1, 0.6]} />
-        {black}
-      </mesh>
-      <mesh position={[0, H + 3.1, -D / 2 - 0.18]}>
-        <boxGeometry args={[0.24, 0.14, 0.2]} />
-        <meshStandardMaterial
-          color="#4dffb0"
-          emissive="#2aff9a"
-          emissiveIntensity={0.6}
-        />
-      </mesh>
-    </group>
-  );
+export function LightFixture({ powered = true }: { powered?: boolean }) {
+  return <LightHardware powered={powered} />;
 }
-
 export function Equipment() {
-  const black = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: "#0c0d12",
-        roughness: 0.5,
-        metalness: 0.2,
-      }),
-    [],
-  );
-  const locline = useMemo(() => {
-    const pts: THREE.Vector3[] = [];
-    for (let i = 0; i < 9; i++) {
-      const t = i / 8;
-      pts.push(
-        new THREE.Vector3(
-          1.0 + t * 1.3,
-          2.95 - Math.sin(t * Math.PI) * 0.12 - t * 0.1,
-          -D / 2 + 0.25 + t * 0.1,
-        ),
-      );
-    }
-    return pts;
-  }, []);
   return (
     <group>
-      {/* hang-on-back filter (left rear) */}
-      <mesh position={[-W / 2 + 0.6, H - 0.55, -D / 2 - 0.28]} material={black}>
-        <boxGeometry args={[1.0, 1.4, 0.5]} />
-      </mesh>
-      <mesh position={[-W / 2 + 0.6, H - 0.05, -D / 2 - 0.05]} material={black}>
-        <boxGeometry args={[1.0, 0.1, 0.55]} />
-      </mesh>
-      {/* intake tube */}
-      <mesh position={[-W / 2 + 0.45, 2.2, -D / 2 + 0.12]} material={black}>
-        <cylinderGeometry args={[0.06, 0.06, 2.4, 12]} />
-      </mesh>
-      <mesh position={[-W / 2 + 0.45, 0.95, -D / 2 + 0.12]}>
-        <cylinderGeometry args={[0.1, 0.1, 0.32, 12]} />
-        <meshStandardMaterial color="#13141a" roughness={0.8} />
-      </mesh>
-      {/* overflow comb */}
-      <group position={[-W / 2 + 0.95, 3.15, -D / 2 + 0.06]}>
-        {Array.from({ length: 10 }).map((_, i) => (
-          <mesh key={i} position={[i * 0.09, 0, 0]} material={black}>
-            <boxGeometry args={[0.05, 0.28, 0.04]} />
-          </mesh>
-        ))}
-      </group>
-      {/* loc-line return */}
-      {locline.map((p, i) => (
-        <mesh key={i} position={p} material={black}>
-          <sphereGeometry args={[0.085, 14, 10]} />
-        </mesh>
-      ))}
-      <mesh
-        position={[2.36, 2.72, -D / 2 + 0.36]}
-        rotation={[0, 0, Math.PI / 2]}
-        material={black}
-      >
-        <torusGeometry args={[0.09, 0.03, 8, 16]} />
-      </mesh>
-      {/* powerhead on right back glass */}
-      <group position={[2.55, 2.6, -D / 2 + 0.15]} rotation={[0, -0.5, 0]}>
-        <mesh material={black} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.18, 0.2, 0.22, 20]} />
-        </mesh>
-        <mesh position={[0, 0, 0.12]}>
-          <torusGeometry args={[0.15, 0.025, 8, 24]} />
-          <meshStandardMaterial color="#20232c" roughness={0.4} />
-        </mesh>
-      </group>
-      {/* heater */}
-      <mesh
-        position={[W / 2 - 0.15, 1.9, -D / 2 + 0.6]}
-        rotation={[0, 0, 0.05]}
-      >
-        <cylinderGeometry args={[0.045, 0.045, 1.6, 12]} />
-        <meshStandardMaterial
-          color="#9fb7d0"
-          transparent
-          opacity={0.45}
-          roughness={0.1}
-        />
-      </mesh>
+      <Filter />
+      <Pump />
+      <Heater />
     </group>
   );
 }
@@ -410,7 +287,7 @@ export default function Tank({
   fixture = true,
   rays = true,
   waterHeight = WATER,
-  exploded = false,
+  exploded: _exploded = false,
   animateStage,
   pulse = 0,
 }: TankParts) {
@@ -419,7 +296,7 @@ export default function Tank({
       <Backdrop />
       {equipment && (
         <BuildMotion active={animateStage === 3} pulse={pulse}>
-          <group position={exploded ? [-0.8, 0.2, 0.3] : [0, 0, 0]}>
+          <group position={[0, 0, 0]}>
             <Equipment />
           </group>
         </BuildMotion>
@@ -440,8 +317,8 @@ export default function Tank({
       </BuildMotion>
       {fixture && (
         <BuildMotion active={animateStage === 3} pulse={pulse}>
-          <group position={exploded ? [0, 0.5, 0] : [0, 0, 0]}>
-            <LightFixture />
+          <group position={[0, 0, 0]}>
+            <LightFixture powered={rays} />
           </group>
         </BuildMotion>
       )}

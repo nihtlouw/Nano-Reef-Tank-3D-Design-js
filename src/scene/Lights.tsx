@@ -21,9 +21,9 @@ interface Preset {
 
 export const PRESETS: Record<LightMode, Preset> = {
   actinic: {
-    blue: 95,
+    blue: 48,
     blueCol: "#2f4cff",
-    white: 18,
+    white: 12,
     whiteCol: "#a8bcff",
     hemi: 0.55,
     hemiSky: "#8a6cff",
@@ -32,12 +32,12 @@ export const PRESETS: Record<LightMode, Preset> = {
     glow: 1,
     caustic: 0.9,
     causticCol: "#8fb0ff",
-    exposure: 1.05,
+    exposure: 0.95,
   },
   reef: {
-    blue: 55,
+    blue: 30,
     blueCol: "#4a66ff",
-    white: 70,
+    white: 32,
     whiteCol: "#eef3ff",
     hemi: 0.8,
     hemiSky: "#d8ccff",
@@ -64,12 +64,29 @@ export const PRESETS: Record<LightMode, Preset> = {
   },
 };
 
+const WORK_LIGHT: Preset = {
+  blue: 8,
+  blueCol: "#b4cadf",
+  white: 22,
+  whiteCol: "#eef2f6",
+  hemi: 0.8,
+  hemiSky: "#bccbd9",
+  room: 18,
+  roomCol: "#d8e0e8",
+  glow: 0.3,
+  caustic: 0.35,
+  causticCol: "#c6d8e3",
+  exposure: 0.9,
+};
+
 export default function Lights({
   wet = true,
   preset,
+  work = false,
 }: {
   wet?: boolean;
   preset?: LightMode;
+  work?: boolean;
 }) {
   const blue = useRef<THREE.SpotLight>(null);
   const white = useRef<THREE.SpotLight>(null);
@@ -96,7 +113,7 @@ export default function Lights({
 
   useFrame(({ clock, gl }, dt) => {
     globalUniforms.uTime.value = clock.elapsedTime;
-    const p = PRESETS[preset ?? useReef.getState().light];
+    const p = work ? WORK_LIGHT : PRESETS[preset ?? useReef.getState().light];
     const k = 1 - Math.exp(-dt * 2.5);
     if (blue.current) {
       blue.current.intensity = THREE.MathUtils.lerp(
@@ -130,12 +147,14 @@ export default function Lights({
       );
       room.current.color.lerp(tmp.set(p.roomCol), k);
     }
-    if (room2.current)
+    if (room2.current) {
+      room2.current.color.lerp(tmp.set(work ? "#c7d6df" : "#9a7aff"), k);
       room2.current.intensity = THREE.MathUtils.lerp(
         room2.current.intensity,
         p.room * 0.8,
         k,
       );
+    }
     globalUniforms.uCaustic.value = THREE.MathUtils.lerp(
       globalUniforms.uCaustic.value,
       wet ? p.caustic : 0,

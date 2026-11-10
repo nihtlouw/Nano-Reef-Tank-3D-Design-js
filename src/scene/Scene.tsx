@@ -31,7 +31,7 @@ const VIEWS: Record<
 
 function CameraRig({ stage }: { stage?: number }) {
   const controls = useRef<OrbitControlsImpl>(null);
-  const { camera, size } = useThree();
+  const { camera, size, gl } = useThree();
   const nonce = useReef((s) => s.viewNonce);
   const anim = useRef<{
     t: number;
@@ -51,11 +51,13 @@ function CameraRig({ stage }: { stage?: number }) {
           ? [0, 2.5, 10.3]
           : [5, 6, 8, 10].includes(stage)
             ? [5.8, 3.7, 9.5]
-            : [0, 2.25, 8.6];
+            : [0, 2.65, 9.4];
     const p = new THREE.Vector3(
       ...(v === "front" && presentation ? presentation : def.pos),
     );
     const t = new THREE.Vector3(...def.target);
+    if (stage !== undefined && stage !== 0 && ![5, 6, 8, 10].includes(stage))
+      t.y = 1.95;
     if (v !== "inside" && aspect < 1.45) {
       const k = Math.min(2.4, 1.45 / aspect);
       p.sub(t).multiplyScalar(k).add(t);
@@ -64,15 +66,18 @@ function CameraRig({ stage }: { stage?: number }) {
   };
 
   useEffect(() => {
-    const { p, t } = fit("front");
+    const activeView = stage === undefined ? useReef.getState().view : "front";
+    const { p, t } = fit(activeView);
     camera.position.copy(p);
     controls.current?.target.copy(t);
     controls.current?.update();
+    gl.domElement.dataset.cameraView = activeView;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [size.width, size.height, stage]);
 
   useEffect(() => {
     if (stage !== undefined || nonce === 0) return;
+    delete gl.domElement.dataset.cameraView;
     const { p, t } = fit(useReef.getState().view);
     anim.current = {
       t: 0,
@@ -95,7 +100,10 @@ function CameraRig({ stage }: { stage?: number }) {
     camera.position.lerpVectors(a.fromP, a.toP, e);
     controls.current.target.lerpVectors(a.fromT, a.toT, e);
     controls.current.update();
-    if (a.t >= 1) anim.current = null;
+    if (a.t >= 1) {
+      anim.current = null;
+      gl.domElement.dataset.cameraView = useReef.getState().view;
+    }
   });
 
   return (
@@ -198,9 +206,13 @@ function Livestock() {
 
 function FrameReady({ onReady }: { onReady?: () => void }) {
   const frames = useRef(0);
+  const { gl } = useThree();
   useFrame(() => {
     frames.current++;
-    if (frames.current === 6) onReady?.();
+    if (frames.current === 6) {
+      gl.domElement.dataset.sceneReady = "true";
+      onReady?.();
+    }
   });
   return null;
 }
@@ -255,7 +267,14 @@ export default function Scene({
       </Environment>
       <Lights
         wet={parts.water}
-        preset={tutorialStage === undefined ? undefined : "actinic"}
+        work={tutorialStage !== undefined && tutorialStage < 7}
+        preset={
+          tutorialStage === undefined
+            ? undefined
+            : tutorialStage < 7
+              ? "reef"
+              : "actinic"
+        }
       />
       <Room />
       <group name="original-reef-model">
@@ -277,7 +296,7 @@ export default function Scene({
               droop={0.14}
               color="#ff9a52"
               tip="#ff7a3a"
-              disc="#5aa8c8"
+              disc="#86594b"
             />
             <Anemone
               position={[0.55, 1.86, -0.12]}
@@ -288,7 +307,7 @@ export default function Scene({
               seed={2}
               color="#ffa25a"
               tip="#ff7040"
-              disc="#5ab4d6"
+              disc="#80564f"
               droop={0.1}
             />
             <Livestock />
@@ -317,7 +336,7 @@ export default function Scene({
       <EffectComposer multisampling={4}>
         <Bloom
           mipmapBlur
-          intensity={0.75}
+          intensity={0.48}
           luminanceThreshold={0.7}
           luminanceSmoothing={0.25}
           radius={0.7}

@@ -3,12 +3,25 @@ import { useFrame } from "@react-three/fiber";
 import { useAnimations, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
-import { fishGeometry, pectoralGeometry, PECTORAL_POS, type FishVariant } from "./fishGeometry";
+import {
+  fishGeometry,
+  pectoralGeometry,
+  PECTORAL_POS,
+  type FishVariant,
+} from "./fishGeometry";
 import { patchMaterial } from "./shaders";
 import { nearestFood } from "./food";
+import { reefSurfaceAt } from "./Rockscape";
 import { mulberry32 } from "./noise";
 
-export const SWIM_BOUNDS = { minX: -2.65, maxX: 2.65, minY: 0.6, maxY: 3.15, minZ: -1.45, maxZ: 1.5 };
+export const SWIM_BOUNDS = {
+  minX: -2.65,
+  maxX: 2.65,
+  minY: 0.6,
+  maxY: 3.15,
+  minZ: -1.45,
+  maxZ: 1.5,
+};
 
 export type Behaviour =
   | { kind: "host"; home: THREE.Vector3; radius: [number, number, number] }
@@ -24,7 +37,12 @@ function clampBounds(v: THREE.Vector3, minY = SWIM_BOUNDS.minY) {
 }
 
 /** Shared steering brain used by procedural and GLB fish */
-function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: THREE.Vector3) {
+function useSwimBrain(
+  behaviour: Behaviour,
+  speed: number,
+  seed: number,
+  start: THREE.Vector3,
+) {
   const rnd = useMemo(() => mulberry32(seed * 991), [seed]);
   const state = useRef({
     pos: start.clone(),
@@ -44,7 +62,7 @@ function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: 
         s.target.set(
           THREE.MathUtils.lerp(SWIM_BOUNDS.minX, SWIM_BOUNDS.maxX, r()),
           THREE.MathUtils.lerp(1.4, 3.0, r()),
-          THREE.MathUtils.lerp(0.2, 1.4, r())
+          THREE.MathUtils.lerp(0.2, 1.4, r()),
         );
         s.next = t + 3 + r() * 2;
       } else {
@@ -52,7 +70,7 @@ function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: 
         s.target.set(
           behaviour.home.x + (r() - 0.5) * 2 * rx,
           behaviour.home.y + (r() - 0.3) * ry,
-          behaviour.home.z + (r() * 0.9 + 0.1) * rz
+          behaviour.home.z + (r() * 0.9 + 0.1) * rz,
         );
         s.next = t + 1.2 + r() * 2.2;
       }
@@ -60,7 +78,7 @@ function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: 
       s.target.set(
         THREE.MathUtils.lerp(-2.4, 2.4, r()),
         0.62 + r() * 0.25,
-        THREE.MathUtils.lerp(0.35, 1.35, r())
+        THREE.MathUtils.lerp(0.35, 1.35, r()),
       );
       s.next = t + 2.5 + r() * 3;
       s.pause = r() < 0.5 ? 1 + r() * 2 : 0;
@@ -72,18 +90,24 @@ function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: 
       s.target.set(
         THREE.MathUtils.lerp(SWIM_BOUNDS.minX, SWIM_BOUNDS.maxX, r()),
         THREE.MathUtils.lerp(1.0, 3.0, r()),
-        THREE.MathUtils.lerp(-0.3, 1.4, r())
+        THREE.MathUtils.lerp(-0.3, 1.4, r()),
       );
       s.next = t + 3 + r() * 4;
     }
-    clampBounds(s.target, behaviour.kind === "bottom" ? 0.55 : SWIM_BOUNDS.minY);
+    clampBounds(
+      s.target,
+      behaviour.kind === "bottom" ? 0.55 : SWIM_BOUNDS.minY,
+    );
   };
 
   const step = (obj: THREE.Object3D, t: number, dt: number) => {
     const s = state.current;
     dt = Math.min(dt, 0.05);
     // food chasing
-    const fb = behaviour.kind === "perch" ? null : nearestFood(s.pos, behaviour.kind === "bottom" ? 1.4 : 3.5);
+    const fb =
+      behaviour.kind === "perch"
+        ? null
+        : nearestFood(s.pos, behaviour.kind === "bottom" ? 1.4 : 3.5);
     let sp = speed;
     if (fb) {
       s.target.copy(fb.pos);
@@ -96,15 +120,31 @@ function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: 
     const to = s.target.clone().sub(s.pos);
     const dist = to.length();
     let desired: THREE.Vector3;
-    if (behaviour.kind === "perch" && dist < 0.05) desired = new THREE.Vector3();
-    else desired = to.normalize().multiplyScalar(sp * THREE.MathUtils.clamp(dist / 0.35, 0.25, 1));
+    if (behaviour.kind === "perch" && dist < 0.05)
+      desired = new THREE.Vector3();
+    else
+      desired = to
+        .normalize()
+        .multiplyScalar(sp * THREE.MathUtils.clamp(dist / 0.35, 0.25, 1));
     if (s.pause > 0 && dist < 0.15) {
       desired.multiplyScalar(0.05);
       s.pause -= dt;
     }
     s.vel.lerp(desired, 1 - Math.exp(-dt * (fb ? 3 : 1.6)));
     s.pos.addScaledVector(s.vel, dt);
-    clampBounds(s.pos, behaviour.kind === "bottom" || behaviour.kind === "perch" ? 0.5 : SWIM_BOUNDS.minY);
+    clampBounds(
+      s.pos,
+      behaviour.kind === "bottom" || behaviour.kind === "perch"
+        ? 0.5
+        : SWIM_BOUNDS.minY,
+    );
+    // Keep the whole fish above the substrate/rock silhouette, not just its centre.
+    // For low swimmers, steer through the open foreground rather than through the reef.
+    const floor = reefSurfaceAt(s.pos.x, s.pos.z) + 0.24;
+    if (s.pos.y < floor && floor < SWIM_BOUNDS.maxY) {
+      s.pos.y = Math.min(SWIM_BOUNDS.maxY, floor);
+      s.vel.y = Math.max(0, s.vel.y);
+    }
     obj.position.copy(s.pos);
     // bob
     obj.position.y += Math.sin(t * 1.7 + seed) * 0.012;
@@ -114,7 +154,11 @@ function useSwimBrain(behaviour: Behaviour, speed: number, seed: number, start: 
     if (v > 0.02) {
       const look = s.vel.clone().normalize();
       look.y = THREE.MathUtils.clamp(look.y, -0.5, 0.5);
-      const m = new THREE.Matrix4().lookAt(new THREE.Vector3(), look.multiplyScalar(-1), new THREE.Vector3(0, 1, 0));
+      const m = new THREE.Matrix4().lookAt(
+        new THREE.Vector3(),
+        look.multiplyScalar(-1),
+        new THREE.Vector3(0, 1, 0),
+      );
       const q = new THREE.Quaternion().setFromRotationMatrix(m);
       obj.quaternion.slerp(q, 1 - Math.exp(-dt * 3.2));
     }
@@ -135,13 +179,24 @@ interface ProcFishProps {
   stretch?: [number, number, number];
 }
 
-export function ProceduralFish({ variant, size, behaviour, speed = 0.45, seed = 1, start, stretch = [1, 1, 1] }: ProcFishProps) {
+export function ProceduralFish({
+  variant,
+  size,
+  behaviour,
+  speed = 0.45,
+  seed = 1,
+  start,
+  stretch = [1, 1, 1],
+}: ProcFishProps) {
   const group = useRef<THREE.Group>(null);
   const finL = useRef<THREE.Mesh>(null);
   const finR = useRef<THREE.Mesh>(null);
   const startV = useMemo(() => new THREE.Vector3(...start), [start]);
   const step = useSwimBrain(behaviour, speed, seed, startV);
-  const swim = useMemo(() => ({ uPhase: { value: 0 }, uAmp: { value: 0.05 } }), []);
+  const swim = useMemo(
+    () => ({ uPhase: { value: 0 }, uAmp: { value: 0.05 } }),
+    [],
+  );
   const geo = useMemo(() => fishGeometry(variant), [variant]);
   const pecGeo = useMemo(() => pectoralGeometry(variant), [variant]);
   const mat = useMemo(
@@ -156,13 +211,20 @@ export function ProceduralFish({ variant, size, behaviour, speed = 0.45, seed = 
           emissive: "#ff7a3a",
           emissiveIntensity: 0.06,
         }),
-        { swim, caustics: 0.35 }
+        { swim, caustics: 0.35 },
       ),
-    [swim]
+    [swim],
   );
   const pecMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ vertexColors: true, side: THREE.DoubleSide, transparent: true, opacity: 0.85, roughness: 0.5 }),
-    []
+    () =>
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+        roughness: 0.5,
+      }),
+    [],
   );
 
   useFrame(({ clock }, dt) => {
@@ -182,8 +244,18 @@ export function ProceduralFish({ variant, size, behaviour, speed = 0.45, seed = 
     <group ref={group} position={start}>
       <group scale={[size * stretch[0], size * stretch[1], size * stretch[2]]}>
         <mesh geometry={geo} material={mat} castShadow />
-        <mesh ref={finL} geometry={pecGeo} material={pecMat} position={PECTORAL_POS(1)} />
-        <mesh ref={finR} geometry={pecGeo} material={pecMat} position={PECTORAL_POS(-1)} />
+        <mesh
+          ref={finL}
+          geometry={pecGeo}
+          material={pecMat}
+          position={PECTORAL_POS(1)}
+        />
+        <mesh
+          ref={finR}
+          geometry={pecGeo}
+          material={pecMat}
+          position={PECTORAL_POS(-1)}
+        />
       </group>
     </group>
   );
@@ -200,7 +272,14 @@ interface GltfFishProps {
   tint?: string;
 }
 
-export function GltfFish({ url, length, behaviour, speed = 0.4, seed = 1, start }: GltfFishProps) {
+export function GltfFish({
+  url,
+  length,
+  behaviour,
+  speed = 0.4,
+  seed = 1,
+  start,
+}: GltfFishProps) {
   const gltf = useGLTF(url);
   const group = useRef<THREE.Group>(null);
   const model = useMemo(() => {
@@ -210,7 +289,13 @@ export function GltfFish({ url, length, behaviour, speed = 0.4, seed = 1, start 
       if (mesh.isMesh) {
         mesh.castShadow = true;
         mesh.frustumCulled = false;
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+        // SkeletonUtils.clone shares materials: clone them before changing render flags.
+        mesh.material = Array.isArray(mesh.material)
+          ? mesh.material.map((m) => m.clone())
+          : mesh.material.clone();
+        const mats = Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material];
         mats.forEach((mt) => {
           mt.side = THREE.DoubleSide;
           const sm = mt as THREE.MeshStandardMaterial;
@@ -223,6 +308,21 @@ export function GltfFish({ url, length, behaviour, speed = 0.4, seed = 1, start 
     });
     return m;
   }, [gltf.scene]);
+  useEffect(
+    () => () => {
+      model.traverse((object) => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.isMesh)
+          (Array.isArray(mesh.material)
+            ? mesh.material
+            : [mesh.material]
+          ).forEach((material) => material.dispose());
+        const skinned = object as THREE.SkinnedMesh;
+        if (skinned.isSkinnedMesh) skinned.skeleton.dispose();
+      });
+    },
+    [model],
+  );
   const scale = useMemo(() => {
     model.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(model, true);
@@ -234,10 +334,11 @@ export function GltfFish({ url, length, behaviour, speed = 0.4, seed = 1, start 
   const action = useRef<THREE.AnimationAction | null>(null);
 
   useEffect(() => {
-    const a = actions["Fish_Armature|Swimming_Normal"] || Object.values(actions)[0];
+    const a =
+      actions["Fish_Armature|Swimming_Normal"] || Object.values(actions)[0];
     if (a) {
       a.reset().play();
-      a.time = Math.random() * a.getClip().duration;
+      a.time = mulberry32(seed * 97)() * a.getClip().duration;
       action.current = a;
     }
     return () => {
