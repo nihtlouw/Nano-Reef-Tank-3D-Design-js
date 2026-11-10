@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 test("overview, equipment hotspot, editable budget and persistent checklist", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/#overview");
   await expect(
     page.getByRole("heading", { name: "Dari desain, menjadi kehidupan." }),
   ).toBeVisible();
@@ -172,7 +172,7 @@ test("navigation works with browser history and without WebGL", async ({
       >);
     } as typeof original;
   });
-  await page.goto("/");
+  await page.goto("/#overview");
   if (isMobile)
     await page.getByRole("button", { name: "Buka navigasi" }).click();
   await page.getByRole("link", { name: "Rancangan teknis" }).click();
