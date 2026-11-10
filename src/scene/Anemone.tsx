@@ -1,7 +1,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { mulberry32 } from "./noise";
 import { patchMaterial, registerGlow } from "./shaders";
 
@@ -32,35 +31,45 @@ export default function Anemone({
   seed = 1,
   droop = 0.12,
 }: Props) {
+  const columnHeight = radius * 0.7;
   const ref = useRef<THREE.InstancedMesh>(null);
   const discRef = useRef<THREE.Mesh>(null);
 
   const { geo, mat } = useMemo(() => {
-    const cyl = new THREE.CylinderGeometry(0.014, 0.024, BASE_LEN, 7, 14, true);
-    cyl.translate(0, BASE_LEN / 2, 0);
-    const bulb = new THREE.SphereGeometry(0.02, 8, 6);
-    bulb.scale(1, 1.3, 1);
-    bulb.translate(0, BASE_LEN * 0.9, 0);
-    const tipS = new THREE.SphereGeometry(0.013, 7, 5);
-    tipS.translate(0, BASE_LEN, 0);
-    // colour: gradient base -> tip
-    const parts = [cyl, bulb, tipS].map((g) => {
-      const p = g.attributes.position;
-      const col = new Float32Array(p.count * 3);
-      const a = new THREE.Color(color);
-      const b = new THREE.Color(tip);
-      const c = new THREE.Color();
-      for (let i = 0; i < p.count; i++) {
-        const h = THREE.MathUtils.clamp(p.getY(i) / BASE_LEN, 0, 1);
-        c.copy(a).lerp(b, Math.pow(h, 1.5));
-        if (h < 0.15) c.lerp(new THREE.Color(disc), (0.15 - h) * 4);
-        col.set([c.r, c.g, c.b], i * 3);
-      }
-      g.setAttribute("color", new THREE.BufferAttribute(col, 3));
-      g.deleteAttribute("uv");
-      return g;
-    });
-    const merged = mergeGeometries(parts)!;
+    // One watertight profile from foot to rounded bulb; no intersecting cylinder caps.
+    const merged = new THREE.LatheGeometry(
+      [
+        new THREE.Vector2(0, 0),
+        new THREE.Vector2(0.024, 0),
+        new THREE.Vector2(0.022, 0.09),
+        new THREE.Vector2(0.019, 0.24),
+        new THREE.Vector2(0.015, 0.38),
+        new THREE.Vector2(0.02, 0.445),
+        new THREE.Vector2(0.022, 0.47),
+        new THREE.Vector2(0.018, 0.493),
+        new THREE.Vector2(0.01, 0.508),
+        new THREE.Vector2(0, 0.514),
+      ],
+      9,
+    );
+    const p = merged.attributes.position;
+    const colors = new Float32Array(p.count * 3);
+    const a = new THREE.Color(color),
+      b = new THREE.Color(tip),
+      c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) {
+      const h = THREE.MathUtils.clamp(p.getY(i) / BASE_LEN, 0, 1);
+      c.copy(a).lerp(b, Math.pow(h, 1.5));
+      if (h < 0.15) c.lerp(new THREE.Color(disc), (0.15 - h) * 4);
+      colors.set([c.r, c.g, c.b], i * 3);
+    }
+    merged.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    const vertices = merged.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < vertices.count; i++) {
+      const h = THREE.MathUtils.clamp(vertices.getY(i) / BASE_LEN, 0, 1);
+      vertices.setX(i, vertices.getX(i) + 0.045 * h * h);
+    }
+    merged.computeVertexNormals();
     const m = patchMaterial(
       registerGlow(
         new THREE.MeshStandardMaterial({
@@ -69,9 +78,12 @@ export default function Anemone({
           emissive: new THREE.Color(color).multiplyScalar(0.7),
           emissiveIntensity: 1,
         }),
-        0.32
+        0.32,
       ),
-      { caustics: 0.6, tentacle: { len: BASE_LEN, droop, sway: 0.07, speed: 1.1 } }
+      {
+        caustics: 0.6,
+        tentacle: { len: BASE_LEN, droop, sway: 0.07, speed: 1.1 },
+      },
     );
     return { geo: merged, mat: m };
   }, [color, tip, disc, droop]);
@@ -87,12 +99,17 @@ export default function Anemone({
       const rr = Math.sqrt(r()) * radius * 0.92;
       const a = r() * Math.PI * 2;
       const k = rr / radius;
-      const tilt = THREE.MathUtils.lerp(0.1, 1.35, Math.pow(k, 0.9)) + (r() - 0.5) * 0.3;
+      const tilt =
+        THREE.MathUtils.lerp(0.08, 1.02, Math.pow(k, 0.9)) + (r() - 0.5) * 0.3;
       qZ.setFromAxisAngle(Z, -tilt);
       qY.setFromAxisAngle(Y, -a);
       const q = qY.multiply(qZ);
       const len = (length / BASE_LEN) * (0.65 + r() * 0.5) * (1 - k * 0.2);
-      const pos = new THREE.Vector3(Math.cos(a) * rr, 0.06 - k * k * 0.05, Math.sin(a) * rr);
+      const pos = new THREE.Vector3(
+        Math.cos(a) * rr,
+        0.105 * Math.sqrt(Math.max(0, 1 - k * k)),
+        Math.sin(a) * rr,
+      );
       m.compose(pos, q, new THREE.Vector3(1.1, len, 1.1));
       ref.current!.setMatrixAt(i, m);
     }
@@ -102,27 +119,48 @@ export default function Anemone({
   useFrame(({ clock }) => {
     if (discRef.current) {
       const s = 1 + Math.sin(clock.elapsedTime * 0.5 + seed) * 0.03;
-      discRef.current.scale.set(radius * s, 0.12, radius * s);
+      discRef.current.scale.set(radius * s, 0.1, radius * s);
     }
   });
 
   return (
     <group position={position} rotation={rotation}>
       {/* column / foot */}
-      <mesh position={[0, -0.18, 0]} castShadow>
-        <cylinderGeometry args={[radius * 0.45, radius * 0.38, 0.4, 20, 1]} />
-        <meshStandardMaterial color="#e8c9a8" roughness={0.6} emissive="#5a3a2a" emissiveIntensity={0.3} />
+      <mesh position={[0, -0.5 * columnHeight + 0.01, 0]} castShadow>
+        <cylinderGeometry
+          args={[radius * 0.45, radius * 0.38, columnHeight, 24, 1]}
+        />
+        <meshStandardMaterial
+          color="#e8c9a8"
+          roughness={0.6}
+          emissive="#5a3a2a"
+          emissiveIntensity={0.3}
+        />
       </mesh>
       {/* oral disc */}
-      <mesh ref={discRef} scale={[radius, 0.12, radius]}>
+      <mesh ref={discRef} scale={[radius, 0.1, radius]}>
         <sphereGeometry args={[1, 32, 12]} />
-        <meshStandardMaterial color={disc} roughness={0.5} emissive={disc} emissiveIntensity={0.3} />
+        <meshStandardMaterial
+          color={disc}
+          roughness={0.5}
+          emissive={disc}
+          emissiveIntensity={0.3}
+        />
       </mesh>
-      <mesh position={[0, 0.115, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[radius * 0.12, 20]} />
-        <meshStandardMaterial color="#f7d9b8" emissive="#ffb888" emissiveIntensity={0.4} />
+      <mesh position={[0, 0.102, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[radius * 0.075, 20]} />
+        <meshStandardMaterial
+          color="#f7d9b8"
+          emissive="#ffb888"
+          emissiveIntensity={0.4}
+        />
       </mesh>
-      <instancedMesh ref={ref} args={[geo, mat, count]} frustumCulled={false} castShadow />
+      <instancedMesh
+        ref={ref}
+        args={[geo, mat, count]}
+        frustumCulled={false}
+        castShadow
+      />
     </group>
   );
 }

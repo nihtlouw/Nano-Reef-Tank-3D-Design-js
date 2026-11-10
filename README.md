@@ -85,3 +85,12 @@ Plugin `vite-plugin-singlefile` menyertakan JavaScript, CSS, gambar, dan model i
 `src/assets/ButterflyFish.glb` dan `src/assets/MandarinFish.glb` karya [Quaternius](https://quaternius.com), sebagaimana dikreditkan oleh [Nihdao/three-aquarium-challenge](https://github.com/Nihdao/three-aquarium-challenge).
 
 File disalin tanpa perubahan dari `public/assets/` pada commit sumber [`aafa3bf67421a267f743ea68e364d5ca8234bc28`](https://github.com/Nihdao/three-aquarium-challenge/tree/aafa3bf67421a267f743ea68e364d5ca8234bc28/public/assets). Model disimpan dalam Git agar clone bersih dan build tidak bergantung pada unduhan tambahan.
+
+## Audit bentuk dan kualitas render
+
+Rincian temuan per objek, perbaikan sambungan/geometri/material, batas model,
+serta prosedur review beberapa sudut tersedia di [audit model 3D](docs/model-audit.md).
+`tests/geometry.spec.ts` menambahkan pemeriksaan winding ikan, koordinat finite,
+ember berdasar, empat sisi pasir, penempatan pada reef aktual, dan bentuk polip.
+Frame audit lokal dari `scripts/audit-scene.mjs` disimpan di `.cache/scene-audit/`,
+bukan sebagai aset aplikasi atau golden screenshot.

@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import * as THREE from "three";
 import { woodTexture, zoaPaintingTexture } from "./textures";
 
 export default function Room() {
@@ -17,16 +16,6 @@ export default function Room() {
     return t;
   }, []);
   const painting = useMemo(() => zoaPaintingTexture(), []);
-
-  const cable = useMemo(() => {
-    const curve = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-7.6, 9, -3.5),
-      new THREE.Vector3(-7.7, 5, -3.2),
-      new THREE.Vector3(-7.5, 2, -2.6),
-      new THREE.Vector3(-7.2, -0.05, -2.0),
-    ]);
-    return new THREE.TubeGeometry(curve, 40, 0.03, 6, false);
-  }, []);
 
   return (
     <group>
@@ -46,10 +35,6 @@ export default function Room() {
           <meshStandardMaterial color="#4a2a2a" roughness={0.9} />
         </mesh>
       ))}
-      <mesh geometry={cable}>
-        <meshStandardMaterial color="#f4f0ff" roughness={0.5} />
-      </mesh>
-
       {/* zoanthid painting */}
       <group position={[8.2, 6.4, -5.45]}>
         <mesh position={[0, 0, -0.02]}>
@@ -58,14 +43,25 @@ export default function Room() {
         </mesh>
         <mesh position={[0, 0, 0.03]}>
           <planeGeometry args={[5.1, 3.8]} />
-          <meshStandardMaterial map={painting} roughness={0.85} emissive="#ffffff" emissiveMap={painting} emissiveIntensity={0.12} />
+          <meshStandardMaterial
+            map={painting}
+            roughness={0.85}
+            emissive="#ffffff"
+            emissiveMap={painting}
+            emissiveIntensity={0.12}
+          />
         </mesh>
       </group>
 
       {/* table */}
       <mesh position={[0, -0.26, 0]} receiveShadow castShadow>
         <boxGeometry args={[20, 0.36, 7]} />
-        <meshStandardMaterial map={tableTex} color="#8a5a52" roughness={0.55} metalness={0.05} />
+        <meshStandardMaterial
+          map={tableTex}
+          color="#8a5a52"
+          roughness={0.55}
+          metalness={0.05}
+        />
       </mesh>
       <mesh position={[0, -3.5, -0.2]}>
         <boxGeometry args={[19.6, 6.2, 6.4]} />
