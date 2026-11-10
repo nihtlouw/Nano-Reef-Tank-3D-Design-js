@@ -15,6 +15,9 @@ import Particles from "./Particles";
 import { GltfFish, ProceduralFish, type Behaviour } from "./Fish";
 import butterflyUrl from "../assets/ButterflyFish.glb?url";
 import mandarinUrl from "../assets/MandarinFish.glb?url";
+import { stageParts } from "../tutorial/stages";
+import TutorialTools from "../tutorial/TutorialTools";
+import BuildMotion from "./BuildMotion";
 
 const VIEWS: Record<
   CamView,
@@ -26,7 +29,7 @@ const VIEWS: Record<
   inside: { pos: [2.2, 1.55, 1.25], target: [0.3, 2.0, -0.3] },
 };
 
-function CameraRig() {
+function CameraRig({ stage }: { stage?: number }) {
   const controls = useRef<OrbitControlsImpl>(null);
   const { camera, size } = useThree();
   const nonce = useReef((s) => s.viewNonce);
@@ -41,7 +44,17 @@ function CameraRig() {
   const fit = (v: CamView) => {
     const def = VIEWS[v];
     const aspect = size.width / size.height;
-    const p = new THREE.Vector3(...def.pos);
+    const presentation: [number, number, number] | null =
+      stage === undefined
+        ? null
+        : stage === 0
+          ? [0, 2.5, 10.3]
+          : [5, 6, 8, 10].includes(stage)
+            ? [5.8, 3.7, 9.5]
+            : [0, 2.25, 8.6];
+    const p = new THREE.Vector3(
+      ...(v === "front" && presentation ? presentation : def.pos),
+    );
     const t = new THREE.Vector3(...def.target);
     if (v !== "inside" && aspect < 1.45) {
       const k = Math.min(2.4, 1.45 / aspect);
@@ -59,7 +72,7 @@ function CameraRig() {
   }, []);
 
   useEffect(() => {
-    if (nonce === 0) return;
+    if (stage !== undefined || nonce === 0) return;
     const { p, t } = fit(useReef.getState().view);
     anim.current = {
       t: 0,
@@ -99,7 +112,7 @@ function CameraRig() {
   );
 }
 
-function Livestock({ realistic }: { realistic: boolean }) {
+function Livestock() {
   const mandarin = useReef((s) => s.mandarin);
   const butterfly = useReef((s) => s.butterfly);
   const goby = useReef((s) => s.goby);
@@ -138,17 +151,15 @@ function Livestock({ realistic }: { realistic: boolean }) {
         seed={3}
         start={[1.0, 2.2, 0.4]}
       />
-      {!realistic && (
-        <ProceduralFish
-          variant="black"
-          size={0.7}
-          behaviour={host}
-          speed={0.38}
-          seed={7}
-          start={[1.4, 1.9, 0.3]}
-        />
-      )}
-      {!realistic && goby && (
+      <ProceduralFish
+        variant="black"
+        size={0.7}
+        behaviour={host}
+        speed={0.38}
+        seed={7}
+        start={[1.4, 1.9, 0.3]}
+      />
+      {goby && (
         <ProceduralFish
           variant="goby"
           size={0.34}
@@ -160,7 +171,7 @@ function Livestock({ realistic }: { realistic: boolean }) {
         />
       )}
       <Suspense fallback={null}>
-        {!realistic && mandarin && (
+        {mandarin && (
           <GltfFish
             url={mandarinUrl}
             length={0.42}
@@ -170,7 +181,7 @@ function Livestock({ realistic }: { realistic: boolean }) {
             start={[-0.8, 0.7, 1.0]}
           />
         )}
-        {!realistic && butterfly && (
+        {butterfly && (
           <GltfFish
             url={butterflyUrl}
             length={0.62}
@@ -185,7 +196,27 @@ function Livestock({ realistic }: { realistic: boolean }) {
   );
 }
 
-export default function Scene({ realistic = false }: { realistic?: boolean }) {
+function FrameReady({ onReady }: { onReady?: () => void }) {
+  const frames = useRef(0);
+  useFrame(() => {
+    frames.current++;
+    if (frames.current === 6) onReady?.();
+  });
+  return null;
+}
+
+export default function Scene({
+  tutorialStage,
+  animate = false,
+  pulse = 0,
+  onReady,
+}: {
+  tutorialStage?: number;
+  animate?: boolean;
+  pulse?: number;
+  onReady?: () => void;
+}) {
+  const parts = stageParts(tutorialStage);
   return (
     <>
       <color attach="background" args={["#140b20"]} />
@@ -222,14 +253,20 @@ export default function Scene({ realistic = false }: { realistic?: boolean }) {
           scale={[6, 6, 1]}
         />
       </Environment>
-      <Lights />
+      <Lights
+        wet={parts.water}
+        preset={tutorialStage === undefined ? undefined : "actinic"}
+      />
       <Room />
-      {/* Normalize 6:3.7:3.6 scene bounds to 45:30:30. Not a fabrication model. */}
-      <group scale={realistic ? [1, 40 / 37, 10 / 9] : [1, 1, 1]}>
-        <Rockscape />
-        <Corals />
-        {!realistic && (
+      <group name="original-reef-model">
+        {parts.rocks && (
+          <BuildMotion active={animate && tutorialStage === 4} pulse={pulse}>
+            <Rockscape life={parts.life} />
+          </BuildMotion>
+        )}
+        {parts.life && (
           <>
+            <Corals />
             <Anemone
               position={[-0.55, 2.55, -0.6]}
               rotation={[0.18, 0, -0.12]}
@@ -254,13 +291,29 @@ export default function Scene({ realistic = false }: { realistic?: boolean }) {
               disc="#5ab4d6"
               droop={0.1}
             />
+            <Livestock />
           </>
         )}
-        <Livestock realistic={realistic} />
-        <Particles />
-        <Tank />
+        {parts.running && parts.water && <Particles />}
+        <Tank
+          water={parts.water}
+          equipment={parts.equipment}
+          fixture={parts.fixture}
+          rays={parts.running}
+          exploded={parts.exploded}
+          waterHeight={tutorialStage === 2 ? 2.8 : undefined}
+          animateStage={animate ? tutorialStage : undefined}
+          pulse={pulse}
+        />
+        {tutorialStage !== undefined && (
+          <TutorialTools
+            stage={tutorialStage}
+            animate={animate}
+            pulse={pulse}
+          />
+        )}
       </group>
-      <CameraRig />
+      <CameraRig stage={tutorialStage} />
       <EffectComposer multisampling={4}>
         <Bloom
           mipmapBlur
@@ -271,6 +324,7 @@ export default function Scene({ realistic = false }: { realistic?: boolean }) {
         />
         <Vignette eskil={false} offset={0.25} darkness={0.65} />
       </EffectComposer>
+      <FrameReady onReady={onReady} />
     </>
   );
 }

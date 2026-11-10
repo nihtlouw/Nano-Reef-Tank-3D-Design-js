@@ -64,7 +64,13 @@ export const PRESETS: Record<LightMode, Preset> = {
   },
 };
 
-export default function Lights() {
+export default function Lights({
+  wet = true,
+  preset,
+}: {
+  wet?: boolean;
+  preset?: LightMode;
+}) {
   const blue = useRef<THREE.SpotLight>(null);
   const white = useRef<THREE.SpotLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
@@ -90,30 +96,60 @@ export default function Lights() {
 
   useFrame(({ clock, gl }, dt) => {
     globalUniforms.uTime.value = clock.elapsedTime;
-    const p = PRESETS[useReef.getState().light];
+    const p = PRESETS[preset ?? useReef.getState().light];
     const k = 1 - Math.exp(-dt * 2.5);
     if (blue.current) {
-      blue.current.intensity = THREE.MathUtils.lerp(blue.current.intensity, p.blue, k);
+      blue.current.intensity = THREE.MathUtils.lerp(
+        blue.current.intensity,
+        p.blue,
+        k,
+      );
       blue.current.color.lerp(tmp.set(p.blueCol), k);
     }
     if (white.current) {
-      white.current.intensity = THREE.MathUtils.lerp(white.current.intensity, p.white, k);
+      white.current.intensity = THREE.MathUtils.lerp(
+        white.current.intensity,
+        p.white,
+        k,
+      );
       white.current.color.lerp(tmp.set(p.whiteCol), k);
     }
     if (hemi.current) {
-      hemi.current.intensity = THREE.MathUtils.lerp(hemi.current.intensity, p.hemi, k);
+      hemi.current.intensity = THREE.MathUtils.lerp(
+        hemi.current.intensity,
+        p.hemi,
+        k,
+      );
       hemi.current.color.lerp(tmp.set(p.hemiSky), k);
     }
     if (room.current) {
-      room.current.intensity = THREE.MathUtils.lerp(room.current.intensity, p.room, k);
+      room.current.intensity = THREE.MathUtils.lerp(
+        room.current.intensity,
+        p.room,
+        k,
+      );
       room.current.color.lerp(tmp.set(p.roomCol), k);
     }
-    if (room2.current) room2.current.intensity = THREE.MathUtils.lerp(room2.current.intensity, p.room * 0.8, k);
-    globalUniforms.uCaustic.value = THREE.MathUtils.lerp(globalUniforms.uCaustic.value, p.caustic, k);
+    if (room2.current)
+      room2.current.intensity = THREE.MathUtils.lerp(
+        room2.current.intensity,
+        p.room * 0.8,
+        k,
+      );
+    globalUniforms.uCaustic.value = THREE.MathUtils.lerp(
+      globalUniforms.uCaustic.value,
+      wet ? p.caustic : 0,
+      k,
+    );
     globalUniforms.uCausticColor.value.lerp(tmp.set(p.causticCol), k);
     cur.current.glow = THREE.MathUtils.lerp(cur.current.glow, p.glow, k);
-    for (const g of glowMaterials) g.mat.emissiveIntensity = g.base * cur.current.glow;
-    gl.toneMappingExposure = THREE.MathUtils.lerp(gl.toneMappingExposure, p.exposure, k);
+    for (const g of glowMaterials)
+      g.mat.emissiveIntensity = g.base * cur.current.glow;
+    gl.toneMappingExposure = THREE.MathUtils.lerp(
+      gl.toneMappingExposure,
+      p.exposure,
+      k,
+    );
   });
 
   return (
@@ -121,8 +157,22 @@ export default function Lights() {
       <primitive object={target} />
       <hemisphereLight ref={hemi} args={["#8a6cff", "#2a1020", 0.55]} />
       {/* Room fill */}
-      <pointLight ref={room} position={[-6, 6, 4]} intensity={22} distance={30} decay={1.4} color="#ff7ac0" />
-      <pointLight ref={room2} position={[7, 7, -2]} intensity={18} distance={25} decay={1.4} color="#9a7aff" />
+      <pointLight
+        ref={room}
+        position={[-6, 6, 4]}
+        intensity={22}
+        distance={30}
+        decay={1.4}
+        color="#ff7ac0"
+      />
+      <pointLight
+        ref={room2}
+        position={[7, 7, -2]}
+        intensity={18}
+        distance={25}
+        decay={1.4}
+        color="#9a7aff"
+      />
       {/* LED fixture */}
       <spotLight
         ref={blue}
@@ -149,7 +199,13 @@ export default function Lights() {
         color="#a8bcff"
       />
       {/* light spill onto the wall behind */}
-      <pointLight position={[0, TANK.h + 0.6, -2.8]} intensity={10} distance={8} decay={1.5} color="#3a5cff" />
+      <pointLight
+        position={[0, TANK.h + 0.6, -2.8]}
+        intensity={10}
+        distance={8}
+        decay={1.5}
+        color="#3a5cff"
+      />
     </group>
   );
 }

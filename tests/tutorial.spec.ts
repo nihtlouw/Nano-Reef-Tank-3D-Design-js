@@ -19,10 +19,12 @@ test("home is a visual tutorial, not a reference dashboard", async ({
 }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: titles[0] })).toBeVisible();
-  await expect(page.locator(".tutorial-stage img")).toBeVisible();
+  await expect(
+    page.locator(".tutorial-stage img.tutorial-still"),
+  ).toBeVisible();
   expect(
     await page
-      .locator(".tutorial-stage img")
+      .locator(".tutorial-stage img.tutorial-still")
       .evaluate(
         (img: HTMLImageElement) => img.complete && img.naturalWidth === 1200,
       ),
@@ -47,7 +49,9 @@ test("next changes the rendered scene but never marks real-world work complete",
     ).toBeVisible();
     await expect(page.locator(".tutorial-actions li")).toHaveCount(3);
     seen.add(
-      (await page.locator(".tutorial-stage img").getAttribute("src")) || "",
+      (await page
+        .locator(".tutorial-stage img.tutorial-still")
+        .getAttribute("src")) || "",
     );
     expect(
       await page.evaluate(
@@ -62,7 +66,7 @@ test("next changes the rendered scene but never marks real-world work complete",
     "0",
   );
   await expect(
-    page.getByRole("link", { name: /Buka jurnal tank/ }),
+    page.getByRole("link", { name: /Eksplorasi hasil akhir/ }),
   ).toBeVisible();
 });
 
@@ -173,28 +177,49 @@ test("all photos work without WebGL; interactive mode falls back to the current 
   });
   await page.goto("/#tutorial/3");
   await expect(page.getByRole("heading", { name: titles[3] })).toBeVisible();
-  await expect(page.locator(".tutorial-stage img")).toBeVisible();
+  await expect(
+    page.locator(".tutorial-stage img.tutorial-still"),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Interaktif", exact: true }).click();
   await expect(
     page.getByText("WebGL tidak tersedia. Gambar 3D tetap bisa diikuti."),
   ).toBeVisible();
-  await expect(page.locator(".tutorial-stage img")).toBeVisible();
+  await expect(
+    page.locator(".tutorial-stage img.tutorial-still"),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Gambar 3D", exact: true }).click();
   await page.locator(".tutorial-quick-next").click();
   await expect(page.getByRole("heading", { name: titles[4] })).toBeVisible();
 });
 
-test("reference pages remain accessible and return to the saved lesson", async ({
+test("only tutorial and exploration remain; lesson position survives switching", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (
+      this: HTMLCanvasElement,
+      type: string,
+      ...args: unknown[]
+    ) {
+      if (type.includes("webgl")) return null;
+      return original.apply(this, [type, ...args] as Parameters<
+        typeof original
+      >);
+    } as typeof original;
+  });
   await page.goto("/#tutorial/5");
-  await page.getByRole("link", { name: "Daftar belanja", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Navigasi utama" })
+    .getByRole("link", { name: "Eksplorasi 3D", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", {
-      name: "Beli yang dibutuhkan. Bukan semuanya.",
-    }),
+    page.getByRole("heading", { name: "Masuk ke dunia reef ini." }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "Kembali ke tutorial visual" }).click();
+  await page
+    .getByRole("navigation", { name: "Navigasi utama" })
+    .getByRole("link", { name: "Tutorial Visual", exact: true })
+    .click();
   await expect(page.getByRole("heading", { name: titles[5] })).toBeVisible();
 });
 

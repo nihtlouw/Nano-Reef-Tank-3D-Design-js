@@ -3,12 +3,13 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { TANK } from "../store";
 import { backdropTexture, ledPanelTexture, rayTexture } from "./textures";
+import BuildMotion from "./BuildMotion";
 import { globalUniforms } from "./shaders";
 
 const { w: W, h: H, d: D, water: WATER } = TANK;
 const T = 0.035; // glass thickness
 
-function Glass() {
+export function Glass() {
   const mat = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
@@ -23,13 +24,27 @@ function Glass() {
         side: THREE.DoubleSide,
         depthWrite: false,
       }),
-    []
+    [],
   );
   const edgeMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#5fc7b4", transparent: true, opacity: 0.55, roughness: 0.1 }),
-    []
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#5fc7b4",
+        transparent: true,
+        opacity: 0.55,
+        roughness: 0.1,
+      }),
+    [],
   );
-  const black = useMemo(() => new THREE.MeshStandardMaterial({ color: "#07070a", roughness: 0.45, metalness: 0.2 }), []);
+  const black = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#07070a",
+        roughness: 0.45,
+        metalness: 0.2,
+      }),
+    [],
+  );
 
   const y = H / 2 - 0.05;
   return (
@@ -69,7 +84,11 @@ function Glass() {
         { p: [-W / 2 - 0.02, H - 0.08, 0], s: [0.05, 0.07, D + 0.08] },
         { p: [W / 2 + 0.02, H - 0.08, 0], s: [0.05, 0.07, D + 0.08] },
       ].map((b, i) => (
-        <mesh key={i} position={b.p as [number, number, number]} material={black}>
+        <mesh
+          key={i}
+          position={b.p as [number, number, number]}
+          material={black}
+        >
           <boxGeometry args={b.s as [number, number, number]} />
         </mesh>
       ))}
@@ -96,15 +115,21 @@ function Backdrop() {
   return (
     <mesh position={[0, H / 2 - 0.05, -D / 2 + 0.03]}>
       <planeGeometry args={[W - 0.05, H]} />
-      <meshStandardMaterial map={tex} emissive="#0a1450" emissiveIntensity={0.35} roughness={0.7} metalness={0.2} />
+      <meshStandardMaterial
+        map={tex}
+        emissive="#0a1450"
+        emissiveIntensity={0.35}
+        roughness={0.7}
+        metalness={0.2}
+      />
     </mesh>
   );
 }
 
-function WaterVolume() {
+function WaterVolume({ height = WATER }: { height?: number }) {
   return (
-    <mesh position={[0, WATER / 2, 0]} renderOrder={5}>
-      <boxGeometry args={[W - 0.08, WATER, D - 0.08]} />
+    <mesh position={[0, height / 2, 0]} renderOrder={5}>
+      <boxGeometry args={[W - 0.08, height, D - 0.08]} />
       <meshPhysicalMaterial
         color="#3a6cff"
         transparent
@@ -117,7 +142,7 @@ function WaterVolume() {
   );
 }
 
-function WaterSurface() {
+function WaterSurface({ height = WATER }: { height?: number }) {
   const mat = useMemo(() => {
     const m = new THREE.MeshPhysicalMaterial({
       color: "#a8d4ff",
@@ -140,7 +165,11 @@ function WaterSurface() {
         }
       `;
       shader.vertexShader = shader.vertexShader
-        .replace("#include <common>", "#include <common>\nuniform float uTime; uniform float uFlow;\n" + wave)
+        .replace(
+          "#include <common>",
+          "#include <common>\nuniform float uTime; uniform float uFlow;\n" +
+            wave,
+        )
         .replace(
           "#include <beginnormal_vertex>",
           `float tt = uTime * (0.6 + 0.6*uFlow);
@@ -151,22 +180,32 @@ function WaterSurface() {
            vec3 objectNormal = normalize(vec3(-(hx-h0)/e * 2.5, -(hy-h0)/e * 2.5, 1.0));
            #ifdef USE_TANGENT
              vec3 objectTangent = vec3( tangent.xyz );
-           #endif`
+           #endif`,
         )
-        .replace("#include <begin_vertex>", "vec3 transformed = vec3(position); transformed.z += h0 * (0.6 + 0.6*uFlow);");
+        .replace(
+          "#include <begin_vertex>",
+          "vec3 transformed = vec3(position); transformed.z += h0 * (0.6 + 0.6*uFlow);",
+        );
     };
     return m;
   }, []);
   return (
-    <mesh position={[0, WATER, 0]} rotation={[-Math.PI / 2, 0, 0]} material={mat} renderOrder={6}>
+    <mesh
+      position={[0, height, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      material={mat}
+      renderOrder={6}
+    >
       <planeGeometry args={[W - 0.08, D - 0.08, 120, 72]} />
     </mesh>
   );
 }
 
-function LightFixture() {
+export function LightFixture() {
   const led = useMemo(() => ledPanelTexture(), []);
-  const black = <meshStandardMaterial color="#0b0c10" roughness={0.4} metalness={0.5} />;
+  const black = (
+    <meshStandardMaterial color="#0b0c10" roughness={0.4} metalness={0.5} />
+  );
   return (
     <group>
       {/* light bar */}
@@ -182,7 +221,13 @@ function LightFixture() {
         {/* soft glow under the bar */}
         <mesh position={[0, -0.07, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <planeGeometry args={[W - 0.2, 1.1]} />
-          <meshBasicMaterial color="#3a5cff" transparent opacity={0.25} toneMapped={false} depthWrite={false} />
+          <meshBasicMaterial
+            color="#3a5cff"
+            transparent
+            opacity={0.25}
+            toneMapped={false}
+            depthWrite={false}
+          />
         </mesh>
       </group>
       {/* mounting arm (behind the tank) */}
@@ -196,19 +241,37 @@ function LightFixture() {
       </mesh>
       <mesh position={[0, H + 3.1, -D / 2 - 0.18]}>
         <boxGeometry args={[0.24, 0.14, 0.2]} />
-        <meshStandardMaterial color="#4dffb0" emissive="#2aff9a" emissiveIntensity={0.6} />
+        <meshStandardMaterial
+          color="#4dffb0"
+          emissive="#2aff9a"
+          emissiveIntensity={0.6}
+        />
       </mesh>
     </group>
   );
 }
 
-function Equipment() {
-  const black = useMemo(() => new THREE.MeshStandardMaterial({ color: "#0c0d12", roughness: 0.5, metalness: 0.2 }), []);
+export function Equipment() {
+  const black = useMemo(
+    () =>
+      new THREE.MeshStandardMaterial({
+        color: "#0c0d12",
+        roughness: 0.5,
+        metalness: 0.2,
+      }),
+    [],
+  );
   const locline = useMemo(() => {
     const pts: THREE.Vector3[] = [];
     for (let i = 0; i < 9; i++) {
       const t = i / 8;
-      pts.push(new THREE.Vector3(1.0 + t * 1.3, 2.95 - Math.sin(t * Math.PI) * 0.12 - t * 0.1, -D / 2 + 0.25 + t * 0.1));
+      pts.push(
+        new THREE.Vector3(
+          1.0 + t * 1.3,
+          2.95 - Math.sin(t * Math.PI) * 0.12 - t * 0.1,
+          -D / 2 + 0.25 + t * 0.1,
+        ),
+      );
     }
     return pts;
   }, []);
@@ -243,7 +306,11 @@ function Equipment() {
           <sphereGeometry args={[0.085, 14, 10]} />
         </mesh>
       ))}
-      <mesh position={[2.36, 2.72, -D / 2 + 0.36]} rotation={[0, 0, Math.PI / 2]} material={black}>
+      <mesh
+        position={[2.36, 2.72, -D / 2 + 0.36]}
+        rotation={[0, 0, Math.PI / 2]}
+        material={black}
+      >
         <torusGeometry args={[0.09, 0.03, 8, 16]} />
       </mesh>
       {/* powerhead on right back glass */}
@@ -257,9 +324,17 @@ function Equipment() {
         </mesh>
       </group>
       {/* heater */}
-      <mesh position={[W / 2 - 0.15, 1.9, -D / 2 + 0.6]} rotation={[0, 0, 0.05]}>
+      <mesh
+        position={[W / 2 - 0.15, 1.9, -D / 2 + 0.6]}
+        rotation={[0, 0, 0.05]}
+      >
         <cylinderGeometry args={[0.045, 0.045, 1.6, 12]} />
-        <meshStandardMaterial color="#9fb7d0" transparent opacity={0.45} roughness={0.1} />
+        <meshStandardMaterial
+          color="#9fb7d0"
+          transparent
+          opacity={0.45}
+          roughness={0.1}
+        />
       </mesh>
     </group>
   );
@@ -277,7 +352,7 @@ function LightRays() {
         rot: (Math.random() - 0.5) * 0.18,
         ph: Math.random() * 10,
       })),
-    []
+    [],
   );
   useFrame(({ clock, camera }) => {
     if (!group.current) return;
@@ -285,14 +360,23 @@ function LightRays() {
     group.current.children.forEach((m, i) => {
       const r = rays[i];
       const mesh = m as THREE.Mesh;
-      mesh.rotation.y = Math.atan2(camera.position.x - mesh.position.x, camera.position.z - mesh.position.z);
-      (mesh.material as THREE.MeshBasicMaterial).opacity = 0.035 + 0.03 * Math.sin(t * 0.6 + r.ph);
+      mesh.rotation.y = Math.atan2(
+        camera.position.x - mesh.position.x,
+        camera.position.z - mesh.position.z,
+      );
+      (mesh.material as THREE.MeshBasicMaterial).opacity =
+        0.035 + 0.03 * Math.sin(t * 0.6 + r.ph);
     });
   });
   return (
     <group ref={group}>
       {rays.map((r, i) => (
-        <mesh key={i} position={[r.x, WATER - 1.3, r.z]} rotation={[0, 0, r.rot]} renderOrder={7}>
+        <mesh
+          key={i}
+          position={[r.x, WATER - 1.3, r.z]}
+          rotation={[0, 0, r.rot]}
+          renderOrder={7}
+        >
           <planeGeometry args={[r.w, 2.6]} />
           <meshBasicMaterial
             map={tex}
@@ -309,16 +393,58 @@ function LightRays() {
   );
 }
 
-export default function Tank() {
+export interface TankParts {
+  water?: boolean;
+  equipment?: boolean;
+  fixture?: boolean;
+  rays?: boolean;
+  waterHeight?: number;
+  exploded?: boolean;
+  animateStage?: number;
+  pulse?: number;
+}
+
+export default function Tank({
+  water = true,
+  equipment = true,
+  fixture = true,
+  rays = true,
+  waterHeight = WATER,
+  exploded = false,
+  animateStage,
+  pulse = 0,
+}: TankParts) {
   return (
     <group>
       <Backdrop />
-      <Equipment />
-      <LightRays />
-      <WaterSurface />
-      <WaterVolume />
-      <Glass />
-      <LightFixture />
+      {equipment && (
+        <BuildMotion active={animateStage === 3} pulse={pulse}>
+          <group position={exploded ? [-0.8, 0.2, 0.3] : [0, 0, 0]}>
+            <Equipment />
+          </group>
+        </BuildMotion>
+      )}
+      {water && (
+        <BuildMotion
+          active={animateStage === 2 || animateStage === 6}
+          pulse={pulse}
+          kind="fill"
+        >
+          <WaterSurface height={waterHeight} />
+          <WaterVolume height={waterHeight} />
+        </BuildMotion>
+      )}
+      {water && rays && <LightRays />}
+      <BuildMotion active={animateStage === 1} pulse={pulse}>
+        <Glass />
+      </BuildMotion>
+      {fixture && (
+        <BuildMotion active={animateStage === 3} pulse={pulse}>
+          <group position={exploded ? [0, 0.5, 0] : [0, 0, 0]}>
+            <LightFixture />
+          </group>
+        </BuildMotion>
+      )}
     </group>
   );
 }

@@ -18,30 +18,6 @@ import {
 import "./tutorial.css";
 
 const Stage3D = lazy(() => import("./Stage3D"));
-const annotations: Partial<
-  Record<number, { id: SupplyId; x: number; y: number }[]>
-> = {
-  0: [
-    { id: "tank", x: 30, y: 34 },
-    { id: "filter", x: 79, y: 43 },
-    { id: "light", x: 31, y: 76 },
-    { id: "rock", x: 47, y: 58 },
-    { id: "water", x: 77, y: 73 },
-    { id: "tests", x: 57, y: 80 },
-  ],
-  3: [
-    { id: "light", x: 60, y: 22 },
-    { id: "filter", x: 37, y: 33 },
-  ],
-  4: [
-    { id: "rock", x: 48, y: 40 },
-    { id: "sand", x: 70, y: 70 },
-  ],
-  5: [{ id: "bucket", x: 77, y: 60 }],
-  8: [{ id: "tests", x: 77, y: 64 }],
-  10: [{ id: "water", x: 77, y: 62 }],
-};
-
 const stillFiles = import.meta.glob<string>("./stills/*.webp", {
   eager: true,
   query: "?url",
@@ -414,7 +390,7 @@ export default function Tutorial() {
     setSaved(index);
   }, [index, setSaved]);
   useEffect(() => {
-    document.title = `${index + 1}. ${lesson.short} · Reef Notes`;
+    document.title = `${index + 1}. ${lesson.short} · Nano Reef`;
     setLive(false);
     setInfo(null);
   }, [index, lesson.short]);
@@ -513,44 +489,19 @@ export default function Tutorial() {
       >
         Ke langkah saat ini
       </a>
-      <header className="tutorial-header">
-        <a href="#tutorial/0" className="tutorial-brand">
-          <span className="tutorial-brand-icon">
-            <TutorialIcon name="wave" size={23} />
-          </span>
-          <span>
-            reef<span>notes</span>
-          </span>
-          <span className="tutorial-header-label">BELAJAR DENGAN MELIHAT</span>
-        </a>
-        <nav aria-label="Referensi tambahan">
-          <a href="#equipment">
-            <TutorialIcon name="bag" size={16} />
-            <span>Daftar belanja</span>
-          </a>
-          <a href="#care" aria-label="Jurnal & perawatan">
-            <TutorialIcon name="book" size={16} />
-            <span>Jurnal & perawatan</span>
-          </a>
-        </nav>
-        <span className="tutorial-saved">
-          <span />
-          Progres tersimpan lokal
-        </span>
-      </header>
       <main className="tutorial-main" id="tutorial-content">
         <div className="tutorial-intro">
           <div>
             <div className="tutorial-eyebrow">
-              PANDUAN VISUAL · NANO REEF 45 CM
+              TUTORIAL VISUAL · DESAIN AKUARIUM ASLI
             </div>
             <h1>
-              Bikin reef pertamamu.
+              Rakit desain reef ini.
               <br className="tutorial-mobile-break" /> Ikuti satu per satu.
             </h1>
             <p>
-              Lihat gambarnya, siapkan bahannya, lalu praktikkan. Nggak perlu
-              baca semuanya sekaligus.
+              Model yang sama dengan Eksplorasi 3D. Lihat tahapnya, siapkan
+              bahan, lalu lanjut.
             </p>
           </div>
           <div className="tutorial-course-progress">
@@ -596,7 +547,11 @@ export default function Tutorial() {
                   <TutorialIcon name="download" size={17} />
                 </button>
               </div>
-              <div className="tutorial-stage" data-stage={lesson.id}>
+              <div
+                className="tutorial-stage"
+                data-stage={lesson.id}
+                data-model="original-reef"
+              >
                 {live ? (
                   <ViewerBoundary
                     key={index}
@@ -636,25 +591,19 @@ export default function Tutorial() {
                     alt={`Tahap ${index + 1}: ${lesson.title}. ${lesson.focus}.`}
                   />
                 )}
-                {!live && (
-                  <div
-                    className="tutorial-annotations"
-                    aria-label="Bagian pada gambar"
+                <span className="tutorial-concept-tag">MODEL DESAIN ASLI</span>
+                {!live && index < 9 && (
+                  <a
+                    href="#explore"
+                    className="tutorial-target"
+                    aria-label="Lihat desain akhir di Eksplorasi 3D"
                   >
-                    {annotations[index]?.map((a) => (
-                      <button
-                        key={a.id}
-                        style={{ left: `${a.x}%`, top: `${a.y}%` }}
-                        aria-label={`Kenali ${supplies[a.id].name} pada gambar`}
-                        onClick={() => setInfo(a.id)}
-                      >
-                        <span />
-                        {supplies[a.id].name}
-                      </button>
-                    ))}
-                  </div>
+                    <img src={stillFor(9)} alt="" />
+                    <span>
+                      DESAIN AKHIR <TutorialIcon name="arrow" size={12} />
+                    </span>
+                  </a>
                 )}
-                <span className="tutorial-concept-tag">VISUALISASI KONSEP</span>
                 {!live && (
                   <button
                     className="tutorial-launch"
@@ -793,7 +742,7 @@ export default function Tutorial() {
                   <TutorialIcon name="info" size={17} />
                   <p>
                     <strong>{supplies[info].name}.</strong> {supplies[info].tip}{" "}
-                    <a href="#equipment">Lihat spesifikasi lengkap →</a>
+                    <a href="#explore">Lihat desain asli →</a>
                   </p>
                   <button
                     aria-label="Tutup penjelasan alat"
@@ -827,16 +776,8 @@ export default function Tutorial() {
                   <TutorialIcon name="down" size={14} />
                 </summary>
                 <p>{lesson.detail}</p>
-                <a
-                  href={
-                    index >= 9
-                      ? "#care"
-                      : index === 8
-                        ? "#cycling"
-                        : "#blueprint"
-                  }
-                >
-                  Buka referensi lengkap <TutorialIcon name="arrow" size={13} />
+                <a href="#explore">
+                  Lihat pada desain asli <TutorialIcon name="arrow" size={13} />
                 </a>
               </details>
             </section>
@@ -873,10 +814,10 @@ export default function Tutorial() {
                     <TutorialIcon name="arrow" size={20} />
                   </button>
                 ) : (
-                  <a className="tutorial-next" href="#care">
+                  <a className="tutorial-next" href="#explore">
                     <span>
-                      <small>LANJUT MERAWAT</small>
-                      <strong>Buka jurnal tank</strong>
+                      <small>DESAIN REFERENSI</small>
+                      <strong>Eksplorasi hasil akhir</strong>
                     </span>
                     <TutorialIcon name="arrow" size={20} />
                   </a>
@@ -962,12 +903,11 @@ export default function Tutorial() {
               </span>
               <div>
                 <strong>Satu tank. Pelan-pelan.</strong>
-                <p>45 × 30 × 30 cm · Indoor tanpa AC</p>
+                <p>Model asli · susunan yang sama</p>
               </div>
             </div>
-            <a href="#equipment" className="tutorial-reference-link">
-              Rincian alat & alokasi biaya{" "}
-              <TutorialIcon name="arrow" size={15} />
+            <a href="#explore" className="tutorial-reference-link">
+              Buka eksplorasi 3D <TutorialIcon name="arrow" size={15} />
             </a>
           </aside>
         </div>
@@ -976,7 +916,7 @@ export default function Tutorial() {
             <TutorialIcon name="wave" size={15} />
             Dirakit dengan sabar, dirawat dengan konsisten.
           </span>
-          <span>Konsep visual, bukan gambar kerja konstruksi.</span>
+          <span>Model asli, bukan gambar kerja konstruksi.</span>
         </footer>
         <div className="tutorial-toast" role="status" aria-live="polite">
           {toast}

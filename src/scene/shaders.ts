@@ -10,9 +10,20 @@ export const globalUniforms = {
 };
 
 // Registry of fluorescent materials (their emissive intensity follows the light mode)
-export const glowMaterials: { mat: THREE.MeshStandardMaterial; base: number }[] = [];
-export function registerGlow<T extends THREE.MeshStandardMaterial>(mat: T, base = 1): T {
-  glowMaterials.push({ mat, base });
+export const glowMaterials: {
+  mat: THREE.MeshStandardMaterial;
+  base: number;
+}[] = [];
+export function registerGlow<T extends THREE.MeshStandardMaterial>(
+  mat: T,
+  base = 1,
+): T {
+  const entry = { mat, base };
+  glowMaterials.push(entry);
+  mat.addEventListener("dispose", () => {
+    const index = glowMaterials.indexOf(entry);
+    if (index !== -1) glowMaterials.splice(index, 1);
+  });
   return mat;
 }
 
@@ -40,7 +51,10 @@ export interface PatchOptions {
   polyp?: { len: number; sway: number };
 }
 
-export function patchMaterial<T extends THREE.Material>(mat: T, opts: PatchOptions): T {
+export function patchMaterial<T extends THREE.Material>(
+  mat: T,
+  opts: PatchOptions,
+): T {
   const key = JSON.stringify({
     c: !!opts.caustics,
     t: !!opts.tentacle,
@@ -132,7 +146,7 @@ export function patchMaterial<T extends THREE.Material>(mat: T, opts: PatchOptio
             on = mat3(instanceMatrix) * on;
           #endif
           vCNormal = normalize(mat3(modelMatrix) * on);
-        }`
+        }`,
       );
     vHead = "";
     shader.fragmentShader = shader.fragmentShader
@@ -141,7 +155,7 @@ export function patchMaterial<T extends THREE.Material>(mat: T, opts: PatchOptio
         `#include <common>
         uniform float uTime; uniform float uCaustic; uniform vec3 uCausticColor; uniform float uCausticK; uniform float uWater;
         varying vec3 vCWorld; varying vec3 vCNormal;
-        ${causticGLSL}`
+        ${causticGLSL}`,
       )
       .replace(
         "#include <opaque_fragment>",
@@ -156,7 +170,7 @@ export function patchMaterial<T extends THREE.Material>(mat: T, opts: PatchOptio
           float below = step(vCWorld.y, uWater);
           outgoingLight += uCausticColor * c * up * depth * uCaustic * uCausticK * below * (0.25 + diffuseColor.rgb * 0.9);
         }
-        #include <opaque_fragment>`
+        #include <opaque_fragment>`,
       );
   };
   mat.customProgramCacheKey = () => key;
