@@ -2,7 +2,46 @@
 
 **Reef Notes** adalah workspace berbahasa Indonesia untuk merencanakan nano reef 45 × 30 × 30 cm dengan batas anggaran awal di bawah Rp5 juta, target clownfish/koral, dan lokasi indoor tanpa AC. Simulasi React/Three.js asli tetap tersedia sebagai visualisasi, bukan spesifikasi siap rakit.
 
-## Fitur panduan
+## Mulai dari tutorial visual
+
+Halaman awal kini langsung membuka **tutorial 11 langkah**, bukan dashboard referensi:
+
+1. Kenali alat dan bahan.
+2. Pilih lokasi dan siapkan stand.
+3. Uji kebocoran dengan air tawar, lalu kuras.
+4. Pasang filter, lampu, dan kabel (belum dinyalakan).
+5. Susun batu dan pasir.
+6. Campur air laut di ember terpisah.
+7. Isi tank dan catat volume aktual.
+8. Uji aliran, suhu, serta restart alat.
+9. Cycling tanpa ikan.
+10. Evaluasi dan tambahkan biota bertahap.
+11. Perawatan rutin.
+
+Setiap langkah memiliki gambar 3D tersendiri, kartu kebutuhan, tiga instruksi singkat, peringatan penting, dan tombol **Lanjut** di dekat gambar maupun bagian bawah. Penjelasan panjang disembunyikan dalam detail opsional. Daftar bab menampilkan thumbnail seperti tutorial; di mobile tersedia sebagai panel yang dapat ditutup dengan Escape.
+
+Gambar WebP dirender dari scene Three.js milik proyek, bukan foto tank nyata atau video. Gambar tetap dapat dilihat tanpa WebGL. Tombol **Interaktif** membuka model tahap tersebut, dengan animasi penempatan sederhana pada tahap tertentu. Tidak ada autoplay antar-pelajaran, audio, timer kelulusan cycling, atau penilaian otomatis kondisi air.
+
+- `#tutorial/0` sampai `#tutorial/10`: tautan langsung ke langkah tertentu.
+- Posisi terakhir disimpan lokal. Checklist lama tidak dihapus.
+- Tombol **Lanjut** hanya menavigasi; status selesai harus ditandai sendiri.
+- Gambar tiap tahap dapat diunduh (WebP statis atau PNG dari canvas interaktif).
+- Daftar belanja, diagram teknis, jurnal, dan simulasi lama tetap tersedia sebagai **referensi tambahan**.
+
+### Memperbarui gambar tahap
+
+Jalankan server Vite, lalu dari terminal lain:
+
+```bash
+npx playwright install chromium
+node scripts/capture-tutorial.mjs
+# Atau render ulang tahap tertentu:
+node scripts/capture-tutorial.mjs 0 4 8
+```
+
+Script membuka rute capture khusus development, mengambil 11 scene dari `Stage3D.tsx`, dan menyimpan WebP 1200 × 675 ke `src/tutorial/stills/`. Rute capture tidak aktif di build produksi. Browser alternatif dapat ditentukan melalui `CHROMIUM_EXECUTABLE_PATH`; script juga menerima `CAPTURE_BASE_URL`.
+
+## Fitur referensi lengkap
 
 - Ringkasan spesifikasi, volume geometris 40,5 L, dan keputusan yang perlu divalidasi.
 - Kebutuhan alat/bahan, fungsi, prioritas, checklist, dan alokasi biaya yang dapat diubah. Alokasi awal Rp4,8 juta **bukan harga pasar terverifikasi**.
@@ -64,13 +103,18 @@ npx playwright install chromium
 npm test
 ```
 
-Suite Playwright menguji desktop dan mobile: hotspot kebutuhan, perubahan anggaran, persistensi checklist, sembilan tahap perakitan, pergantian diagram, overflow halaman, jurnal/ekspor/hapus, data lokal rusak, penyimpanan terblokir, navigasi browser, serta fallback tanpa WebGL.
+Suite Playwright menguji tutorial dan referensi pada desktop/mobile: navigasi 11 gambar berbeda, resume/progres, unduhan gambar, panel bab, fallback WebGL, pelestarian checklist lama, serta hotspot kebutuhan, perubahan anggaran, persistensi checklist, sembilan tahap perakitan, pergantian diagram, overflow halaman, jurnal/ekspor/hapus, data lokal rusak, penyimpanan terblokir, navigasi browser, serta fallback tanpa WebGL.
 
 Untuk memakai Chromium yang sudah tersedia, atur `CHROMIUM_EXECUTABLE_PATH=/path/to/chromium npm test`. Paket Chromium untuk sandbox tidak menjadi dependensi aplikasi. Hasil pengujian berada di direktori yang diabaikan Git.
 
 ### Struktur konten
 
-- `src/App.tsx`: navigasi workspace, halaman panduan, dan jurnal.
+- `src/App.tsx`: memilih tutorial utama atau referensi berdasarkan hash.
+- `src/tutorial/Tutorial.tsx`: antarmuka langkah, daftar bab, bahan, unduhan gambar, dan progres.
+- `src/tutorial/lessons.ts`: materi singkat per langkah dan spesifikasi kebutuhan.
+- `src/tutorial/Stage3D.tsx`: model perakitan bertahap dan animasi sederhana.
+- `src/tutorial/stills/`: 11 hasil render yang tetap tampil tanpa WebGL.
+- `src/ReferenceApp.tsx`: workspace referensi lengkap dan jurnal lama.
 - `src/guide/data.ts`: spesifikasi, alokasi, tahap rakit, dan materi perawatan.
 - `src/guide/Diagram.tsx`: diagram SVG dengan ID unik dan hotspot keyboard.
 - `src/guide/storage.ts`: penyimpanan lokal dengan validasi tipe data.
