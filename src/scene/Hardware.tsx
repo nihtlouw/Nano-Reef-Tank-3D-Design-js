@@ -34,7 +34,7 @@ export function Pipe({
     </mesh>
   );
 }
-function Block({
+export function Block({
   position,
   size,
   color = "#202630",
@@ -184,41 +184,48 @@ export function Filter() {
     </group>
   );
 }
+export function PumpHead() {
+  return (
+    <group>
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.19, 0.19, 0.08, 32]} />
+        <meshStandardMaterial color="#252d36" />
+      </mesh>
+      <Block position={[0, 0, 0.13]} size={[0.1, 0.12, 0.22]} />
+      <mesh position={[0, 0, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.19, 0.16, 0.24, 32]} />
+        <meshStandardMaterial color="#2e3540" />
+      </mesh>
+      <mesh position={[0, 0, 0.44]}>
+        <torusGeometry args={[0.177, 0.022, 8, 32]} />
+        <meshStandardMaterial color="#59606b" />
+      </mesh>
+      <mesh position={[0, 0, 0.43]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.05, 0.05, 0.08, 16]} />
+        <meshStandardMaterial color="#77818b" />
+      </mesh>
+      {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+        <mesh
+          key={i}
+          position={[
+            Math.cos((i * Math.PI) / 4) * 0.095,
+            Math.sin((i * Math.PI) / 4) * 0.095,
+            0.445,
+          ]}
+          rotation={[0, 0, (i * Math.PI) / 4]}
+        >
+          <boxGeometry args={[0.16, 0.018, 0.025]} />
+          <meshStandardMaterial color="#59636f" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
 export function Pump() {
   return (
     <group name="circulation-pump">
       <group position={[2.45, 2.72, rear + 0.04]}>
-        <mesh rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.19, 0.19, 0.08, 32]} />
-          <meshStandardMaterial color="#252d36" />
-        </mesh>
-        <Block position={[0, 0, 0.13]} size={[0.1, 0.12, 0.22]} />
-        <mesh position={[0, 0, 0.3]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.19, 0.16, 0.24, 32]} />
-          <meshStandardMaterial color="#2e3540" />
-        </mesh>
-        <mesh position={[0, 0, 0.44]}>
-          <torusGeometry args={[0.177, 0.022, 8, 32]} />
-          <meshStandardMaterial color="#59606b" />
-        </mesh>
-        <mesh position={[0, 0, 0.43]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 0.08, 16]} />
-          <meshStandardMaterial color="#77818b" />
-        </mesh>
-        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-          <mesh
-            key={i}
-            position={[
-              Math.cos((i * Math.PI) / 4) * 0.095,
-              Math.sin((i * Math.PI) / 4) * 0.095,
-              0.445,
-            ]}
-            rotation={[0, 0, (i * Math.PI) / 4]}
-          >
-            <boxGeometry args={[0.16, 0.018, 0.025]} />
-            <meshStandardMaterial color="#59636f" />
-          </mesh>
-        ))}
+        <PumpHead />
       </group>
       {/* Articulated nozzle is one hollow continuous tube joined to the pump. */}
       <Pipe

@@ -500,8 +500,11 @@ export default function Tutorial() {
               <br className="tutorial-mobile-break" /> Ikuti satu per satu.
             </h1>
             <p>
-              Model yang sama dengan Eksplorasi 3D. Lihat tahapnya, siapkan
-              bahan, lalu lanjut.
+              Rakit tank utama langkah demi langkah, atau{" "}
+              <a className="tutorial-pair-link" href="#explore">
+                lihat kedua tank berdampingan di Eksplorasi 3D
+              </a>
+              .
             </p>
           </div>
           <div className="tutorial-course-progress">

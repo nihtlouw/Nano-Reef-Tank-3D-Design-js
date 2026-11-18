@@ -17,7 +17,7 @@ export function sandHeight(x: number, z: number) {
 }
 
 /* ---------------- Sand ---------------- */
-function Sand() {
+export function Sand({ tint = "#e8eefc" }: { tint?: string }) {
   const geo = useMemo(() => {
     const g = new THREE.PlaneGeometry(W - 0.07, D - 0.07, 140, 84);
     g.rotateX(-Math.PI / 2);
@@ -35,12 +35,12 @@ function Sand() {
       patchMaterial(
         new THREE.MeshStandardMaterial({
           map: sandTexture(),
-          color: "#e8eefc",
+          color: tint,
           roughness: 0.95,
         }),
         { caustics: 1.25 },
       ),
-    [],
+    [tint],
   );
   // front cross-section of the sand bed (visible through the glass)
   const sideGeo = useMemo(

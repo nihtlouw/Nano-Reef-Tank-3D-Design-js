@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { woodTexture, zoaPaintingTexture } from "./textures";
+import { benchCenterX } from "./tankLayout";
 
-export default function Room() {
+export default function Room({ paired = false }: { paired?: boolean }) {
+  const benchX = paired ? benchCenterX : 0;
   const tableTex = useMemo(() => {
     const t = woodTexture("#3b1f1a", "#160806", "table").clone();
     t.repeat.set(2, 1);
@@ -36,7 +38,7 @@ export default function Room() {
         </mesh>
       ))}
       {/* zoanthid painting */}
-      <group position={[8.2, 6.4, -5.45]}>
+      <group position={[8.2 + benchX * 2, 6.4, -5.45]}>
         <mesh position={[0, 0, -0.02]}>
           <boxGeometry args={[5.4, 4.1, 0.08]} />
           <meshStandardMaterial color="#e9e3f5" roughness={0.6} />
@@ -54,7 +56,7 @@ export default function Room() {
       </group>
 
       {/* table */}
-      <mesh position={[0, -0.26, 0]} receiveShadow castShadow>
+      <mesh position={[benchX, -0.26, 0]} receiveShadow castShadow>
         <boxGeometry args={[20, 0.36, 7]} />
         <meshStandardMaterial
           map={tableTex}
@@ -63,7 +65,7 @@ export default function Room() {
           metalness={0.05}
         />
       </mesh>
-      <mesh position={[0, -3.5, -0.2]}>
+      <mesh position={[benchX, -3.5, -0.2]}>
         <boxGeometry args={[19.6, 6.2, 6.4]} />
         <meshStandardMaterial color="#1a0d0d" roughness={0.9} />
       </mesh>

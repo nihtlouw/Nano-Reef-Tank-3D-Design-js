@@ -125,3 +125,46 @@ test("the design target is available from early tutorial steps and real-world wa
   );
   await expect(page.locator(".tutorial-target")).toHaveCount(0);
 });
+
+test("the side-by-side display and supplied reference remain accessible without 3D", async ({
+  page,
+}) => {
+  await page.addInitScript(disableWebGL);
+  await page.goto("/#explore");
+  const fallback = page.locator(".explorer-fallback > img");
+  await expect(fallback).toHaveAttribute("alt", /dua akuarium berdampingan/i, {
+    timeout: 20000,
+  });
+  const pair = page.getByRole("button", { name: "Kedua tank", exact: true });
+  const second = page.getByRole("button", { name: "Tank kedua", exact: true });
+  await expect(pair).toHaveAttribute("aria-pressed", "true");
+  await second.click();
+  await expect(second).toHaveAttribute("aria-pressed", "true");
+  await expect(fallback).toHaveAttribute("alt", /Foto acuan tank kedua/);
+  await expect
+    .poll(() =>
+      fallback.evaluate(
+        (el: HTMLImageElement) => el.complete && el.naturalWidth === 1280,
+      ),
+    )
+    .toBe(true);
+  const reference = page.getByRole("button", { name: "Foto acuan tank kedua" });
+  await reference.click();
+  const dialog = page.getByRole("dialog", { name: "Reef Panorama" });
+  await expect(dialog.getByRole("img")).toHaveAttribute(
+    "src",
+    (await fallback.getAttribute("src"))!,
+  );
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(reference).toBeFocused();
+  await page.getByRole("button", { name: "Tank utama", exact: true }).click();
+  await expect(fallback).toHaveAttribute("alt", /Render tank utama/);
+  await pair.click();
+  await expect(fallback).toHaveAttribute("alt", /dua akuarium berdampingan/i);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});

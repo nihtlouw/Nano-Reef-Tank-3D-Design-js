@@ -50,7 +50,7 @@ Dengan Vite berjalan:
 node scripts/audit-scene.mjs
 ```
 
-Script mengunduh frame canvas WebGL asli dari depan, sudut, atas dan dalam, lalu scene tutorial dan mobile. Frame disimpan lokal di `.cache/scene-audit/` (diabaikan Git); **tidak ada golden screenshot yang dianggap membuktikan akurasi objek**. Pemeriksaan visual manual tetap diperlukan.
+Script menyimpan frame kedua tank berdampingan (`reef-both.png`), tank kedua (`reef-panorama.png`), lalu tank utama dari depan, sudut, atas dan dalam, serta scene tutorial dan mobile. `SCENE_AUDIT_VIEWS=both,panorama` membatasi kamera ke dua tampilan baru. `src/assets/reef-pair.webp` adalah frame tampilan berdampingan yang dikompresi untuk pratinjau/fallback. Frame disimpan lokal di `.cache/scene-audit/` (diabaikan Git); **tidak ada golden screenshot yang dianggap membuktikan akurasi objek**. Pemeriksaan visual manual tetap diperlukan.
 
 Untuk membagi audit di renderer software yang lambat:
 

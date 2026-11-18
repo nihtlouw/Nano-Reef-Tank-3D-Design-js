@@ -7,12 +7,30 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useReef, type CamView, type LightMode } from "./store";
+import { useReef, type CamView, type LightMode, type TankFocus } from "./store";
 import { TutorialIcon, stillFor } from "./tutorial/Tutorial";
+import panoramaPhoto from "./assets/reef-panorama.webp";
+import pairStill from "./assets/reef-pair.webp";
+
 const Aquarium = lazy(() => import("./AquariumView"));
 
+const posters = {
+  both: {
+    src: pairStill,
+    alt: "Render dua akuarium berdampingan: Nano Reef di kiri dan Reef Panorama di kanan",
+  },
+  main: {
+    src: stillFor(9),
+    alt: "Render tank utama dengan batu, koral, anemon, dan ikan",
+  },
+  panorama: {
+    src: panoramaPhoto,
+    alt: "Foto acuan tank kedua dengan dua lampu biru dan koral berlapis merah",
+  },
+} satisfies Record<TankFocus, { src: string; alt: string }>;
+
 class ExplorerBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; focus: TankFocus },
   { failed: boolean }
 > {
   state = { failed: false };
@@ -22,15 +40,12 @@ class ExplorerBoundary extends Component<
   render() {
     return this.state.failed ? (
       <div className="explorer-fallback">
-        <img
-          src={stillFor(9)}
-          alt="Render desain akuarium asli dengan batu, koral, anemon, dan ikan"
-        />
+        <img {...posters[this.props.focus]} />
         <div>
           <h2>3D tidak tersedia di perangkat ini</h2>
           <p>
-            Gambar desain asli tetap tersedia. Tutorial visual bisa diikuti
-            tanpa WebGL.
+            Pilih tank untuk melihat gambarnya. Tutorial visual tetap bisa
+            diikuti tanpa WebGL.
           </p>
           <a href="#tutorial">Buka tutorial visual →</a>
         </div>
@@ -57,6 +72,8 @@ export default function Exploration() {
     setLight,
     view,
     setView,
+    focus,
+    focusTank,
     flow,
     setFlow,
     feed,
@@ -65,12 +82,13 @@ export default function Exploration() {
     goby,
     toggle,
   } = useReef();
+  const reference = useRef<HTMLDialogElement>(null);
   const [ready, setReady] = useState(false);
   const [fed, setFed] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     document.title = "Eksplorasi 3D · Nano Reef";
-    useReef.getState().setView("front");
+    useReef.getState().focusTank("both");
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
@@ -85,48 +103,120 @@ export default function Exploration() {
     <main className="exploration-main">
       <div className="exploration-heading">
         <div>
-          <span className="tutorial-eyebrow">
-            DESAIN ASLI · MODEL INTERAKTIF
-          </span>
+          <span className="tutorial-eyebrow">KOLEKSI REEF · EKSPLORASI 3D</span>
           <h1>Masuk ke dunia reef ini.</h1>
           <p>
-            Batu, koral, anemon, ikan, dan cahaya yang sama dengan tutorial
-            visual.
+            Nano Reef dari tutorial di kiri, Reef Panorama dari foto acuan di
+            kanan. Pilih tank untuk melihat lebih dekat.
           </p>
         </div>
         <a href="#tutorial" className="exploration-start">
           Rakit tahap demi tahap <TutorialIcon name="arrow" size={17} />
         </a>
       </div>
-      <section
-        className="exploration-frame"
-        aria-label="Eksplorasi akuarium asli"
-        data-model="original-reef"
-      >
-        <div className="exploration-frame-label">
-          <span />
-          LIVE 3D{" "}
-          <span className="exploration-design-tag">DESAIN REFERENSI</span>
-        </div>
-        <ExplorerBoundary>
-          <Suspense
-            fallback={
-              <div className="exploration-loading">Menyiapkan desain asli…</div>
-            }
+      <section className="tank-display" aria-label="Dua akuarium berdampingan">
+        <div className="tank-display-bar">
+          <div className="tank-focus" role="group" aria-label="Fokus kamera">
+            {(
+              [
+                ["both", "Kedua tank"],
+                ["main", "Tank utama"],
+                ["panorama", "Tank kedua"],
+              ] as const
+            ).map(([id, label], i) => (
+              <button
+                key={id}
+                aria-pressed={focus === id}
+                onClick={() => focusTank(id)}
+              >
+                {i === 0 ? (
+                  <TutorialIcon name="cube" size={15} />
+                ) : (
+                  <small aria-hidden="true">0{i}</small>
+                )}
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            className="tank-reference"
+            onClick={() => reference.current?.showModal()}
+            aria-haspopup="dialog"
+            aria-label="Foto acuan tank kedua"
+            title="Foto acuan tank kedua"
           >
-            <Aquarium onReady={() => setReady(true)} />
-          </Suspense>
-        </ExplorerBoundary>
-        {!ready && (
-          <span className="exploration-loading-indicator" aria-live="polite">
-            Model akan tampil saat 3D siap.
-          </span>
-        )}
-        <div className="exploration-frame-footer">
-          Seret untuk memutar · scroll untuk zoom{" "}
-          <span>Visualisasi, bukan pembacaan sensor</span>
+            <img src={panoramaPhoto} alt="" width="40" height="25" />
+            <span>Foto acuan</span>
+            <TutorialIcon name="chevron" size={13} />
+          </button>
+        </div>
+        <div
+          className="exploration-frame"
+          data-model="reef-pair"
+          data-focus={focus}
+        >
+          <div className="exploration-frame-label" aria-hidden="true">
+            <span />
+            {ready ? "LIVE 3D" : "PRATINJAU"}
+            <span className="exploration-design-tag">
+              {focus === "main"
+                ? "01 / NANO REEF"
+                : focus === "panorama"
+                  ? "02 / REEF PANORAMA"
+                  : "01 + 02 / DUA TANK"}
+            </span>
+          </div>
+          <ExplorerBoundary focus={focus}>
+            <Suspense fallback={null}>
+              <Aquarium onReady={() => setReady(true)} />
+            </Suspense>
+            {!ready && (
+              <img className="exploration-poster" {...posters[focus]} />
+            )}
+          </ExplorerBoundary>
+          {!ready && (
+            <span className="exploration-loading-indicator" role="status">
+              Menyiapkan tampilan 3D…
+            </span>
+          )}
+          <div className="exploration-frame-footer">
+            Seret untuk memutar · cubit atau scroll untuk zoom{" "}
+            <span>Visualisasi, bukan pembacaan sensor</span>
+          </div>
         </div>
       </section>
+      <dialog
+        ref={reference}
+        className="reference-dialog"
+        aria-labelledby="reference-title"
+        onClick={(e) => {
+          if (e.target === reference.current) reference.current?.close();
+        }}
+      >
+        <div>
+          <div className="reference-heading">
+            <div>
+              <span className="tutorial-eyebrow">02 / FOTO ACUAN</span>
+              <h2 id="reference-title">Reef Panorama</h2>
+            </div>
+            <form method="dialog">
+              <button aria-label="Tutup foto acuan">
+                <TutorialIcon name="close" />
+              </button>
+            </form>
+          </div>
+          <img
+            src={panoramaPhoto}
+            alt={posters.panorama.alt}
+            width="1280"
+            height="720"
+          />
+          <p>
+            Foto acuan untuk bentuk tank kedua, lampu kembar, rak frag, dan
+            susunan koralnya.
+          </p>
+        </div>
+      </dialog>
       <div className="exploration-controls">
         <section>
           <h2>Sudut pandang</h2>
@@ -135,6 +225,11 @@ export default function Exploration() {
               <button
                 key={v.id}
                 aria-pressed={view === v.id}
+                title={
+                  v.id === "inside" && focus === "both"
+                    ? "Masuk ke tank utama"
+                    : undefined
+                }
                 onClick={() => setView(v.id)}
               >
                 {v.name}
@@ -178,10 +273,7 @@ export default function Exploration() {
       <div className="exploration-livestock">
         <div>
           <span className="tutorial-eyebrow">BIOTA SIMULASI</span>
-          <p>
-            Clownfish & anemon pada desain asli. Biota tambahan bisa ditampilkan
-            di sini.
-          </p>
+          <p>Biota tambahan dan pakan simulasi berlaku untuk tank utama.</p>
         </div>
         <div className="exploration-fish-buttons">
           {(

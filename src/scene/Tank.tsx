@@ -10,13 +10,13 @@ import { globalUniforms } from "./shaders";
 const { w: W, h: H, d: D, water: WATER } = TANK;
 const T = 0.035; // glass thickness
 
-export function Glass() {
+export function Glass({ opacity = 0.09 }: { opacity?: number }) {
   const mat = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
         color: "#d8f0ff",
         transparent: true,
-        opacity: 0.09,
+        opacity,
         roughness: 0.03,
         metalness: 0,
         envMapIntensity: 1.6,
@@ -25,7 +25,7 @@ export function Glass() {
         side: THREE.DoubleSide,
         depthWrite: false,
       }),
-    [],
+    [opacity],
   );
   const edgeMat = useMemo(
     () =>
@@ -204,6 +204,16 @@ function WaterSurface({ height = WATER }: { height?: number }) {
   );
 }
 
+/** Shared water meshes in the shell's local coordinate system. */
+export function Water({ height = WATER }: { height?: number }) {
+  return (
+    <>
+      <WaterSurface height={height} />
+      <WaterVolume height={height} />
+    </>
+  );
+}
+
 export function LightFixture({ powered = true }: { powered?: boolean }) {
   return <LightHardware powered={powered} />;
 }
@@ -307,8 +317,7 @@ export default function Tank({
           pulse={pulse}
           kind="fill"
         >
-          <WaterSurface height={waterHeight} />
-          <WaterVolume height={waterHeight} />
+          <Water height={waterHeight} />
         </BuildMotion>
       )}
       {water && rays && <LightRays />}

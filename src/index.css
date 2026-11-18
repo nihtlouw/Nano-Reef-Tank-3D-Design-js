@@ -146,13 +146,118 @@ summary:focus-visible {
   border-radius: 6px;
   white-space: nowrap;
 }
+.tank-display {
+  overflow: hidden;
+  border: 1px solid #3a4e5d;
+  border-radius: 12px;
+  background: #111f29;
+}
+.tank-display-bar,
+.tank-focus,
+.tank-focus button,
+.tank-reference,
+.reference-heading {
+  display: flex;
+  align-items: center;
+}
+.tank-display-bar {
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 15px;
+  border-bottom: 1px solid #344957;
+}
+.tank-focus {
+  gap: 4px;
+}
+.tank-focus button,
+.tank-reference {
+  gap: 8px;
+  font-size: 12px;
+  border-radius: 5px;
+  color: #a3b8c4;
+}
+.tank-focus button {
+  border: 1px solid transparent;
+  min-height: 35px;
+  padding: 5px 11px;
+}
+.tank-focus small {
+  font:
+    10px ui-monospace,
+    monospace;
+  color: #8ca4ad;
+}
+.tank-focus button:hover,
+.tank-reference:hover {
+  color: #eff9f3;
+}
+.tank-focus button[aria-pressed="true"] {
+  background: #254239;
+  border-color: #496a5c;
+  color: #d0ead6;
+}
+.tank-reference {
+  min-height: 35px;
+  padding: 2px 3px;
+}
+.tank-reference img {
+  width: 40px;
+  height: 25px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+.reference-dialog {
+  width: min(920px, 94vw);
+  max-height: 94dvh;
+  margin: auto;
+  overflow: auto;
+  border: 1px solid #455c67;
+  border-radius: 10px;
+  background: #101f29;
+  color: #dce6ec;
+}
+.reference-dialog::backdrop {
+  background: #03090fdb;
+}
+.reference-heading {
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+.reference-heading h2 {
+  margin-top: 3px;
+  font-size: 20px;
+  font-weight: 500;
+}
+.reference-heading button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+}
+.reference-dialog img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.reference-dialog p {
+  padding: 12px 20px;
+  color: #adc0ca;
+  font-size: 12px;
+  line-height: 1.6;
+}
 .exploration-frame {
   position: relative;
-  height: clamp(450px, 68vh, 750px);
-  border: 1px solid #3b435f;
-  border-radius: 12px;
+  height: clamp(360px, min(46vw, 62vh), 700px);
   overflow: hidden;
-  background: #140b20;
+  background: #100e1c;
+}
+.exploration-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
 }
 .exploration-frame > div:has(> canvas) {
   height: 100% !important;
@@ -199,57 +304,45 @@ summary:focus-visible {
   font-size: 9px;
   pointer-events: none;
 }
-.exploration-loading {
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: #bad0e0;
-  font-size: 13px;
-}
 .exploration-loading-indicator {
   position: absolute;
   bottom: 56px;
   left: 20px;
-  color: #7a8da6;
-  font-size: 9px;
+  color: #d4e4e9;
+  background: #101d2bb8;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 10px;
   pointer-events: none;
 }
-.exploration-frame:has(.explorer-fallback) .exploration-loading-indicator {
+.exploration-frame:has(.explorer-fallback)
+  :is(.exploration-loading-indicator, .exploration-frame-footer) {
   display: none;
 }
 .explorer-fallback {
-  position: relative;
   height: 100%;
-  width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 .explorer-fallback > img {
-  height: 100%;
   width: 100%;
-  object-fit: cover;
-  opacity: 0.55;
+  min-height: 0;
+  flex: 1;
+  object-fit: contain;
 }
 .explorer-fallback > div {
-  position: absolute;
-  left: 25px;
-  bottom: 70px;
-  right: 25px;
-  border: 1px solid #819cac55;
-  border-radius: 8px;
-  padding: 22px;
-  background: #101d2be8;
-  max-width: 520px;
+  padding: 11px 18px;
+  border-top: 1px solid #344957;
+  background: #101e29;
 }
 .explorer-fallback h2 {
-  font-size: 20px;
-  font-weight: 450;
-  line-height: 1.5;
-  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 500;
 }
 .explorer-fallback p {
   font-size: 12px;
   color: #9bb5c8;
-  line-height: 1.8;
-  margin: 0 0 10px;
+  line-height: 1.7;
 }
 .explorer-fallback a {
   color: #b9d9bd;
@@ -502,11 +595,34 @@ summary:focus-visible {
     margin-top: 18px;
     padding: 11px 14px;
   }
+  .tank-display-bar {
+    padding: 7px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+  .tank-focus {
+    gap: 1px;
+  }
+  .tank-focus button {
+    min-height: 39px;
+    padding: 5px 7px;
+    gap: 5px;
+    font-size: 11px;
+  }
+  .tank-reference {
+    gap: 5px;
+    font-size: 10px;
+  }
+  .tank-focus small,
+  .tank-reference svg {
+    display: none;
+  }
+  .tank-reference img {
+    width: 25px;
+    height: 18px;
+  }
   .exploration-frame {
-    height: 530px;
-    max-height: 75vh;
-    min-height: 410px;
-    border-radius: 9px;
+    height: clamp(235px, 68vw, 390px);
   }
   .exploration-frame-label {
     top: 15px;
@@ -553,19 +669,25 @@ summary:focus-visible {
     font-size: 9px;
   }
   .explorer-fallback > div {
-    left: 16px;
-    right: 16px;
-    padding: 16px;
-    bottom: 78px;
+    padding: 9px 13px;
   }
   .explorer-fallback h2 {
-    font-size: 18px;
+    font-size: 14px;
   }
   .explorer-fallback p {
     font-size: 11px;
   }
   .exploration-loading-indicator {
     font-size: 8px;
+  }
+}
+@media (max-width: 380px) {
+  .tank-reference img,
+  .tank-focus svg {
+    display: none;
+  }
+  .tank-focus button {
+    padding-inline: 5px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -579,6 +701,7 @@ summary:focus-visible {
 }
 @media print {
   .site-header,
+  .tank-display-bar,
   .exploration-controls,
   .exploration-livestock,
   .exploration-start,

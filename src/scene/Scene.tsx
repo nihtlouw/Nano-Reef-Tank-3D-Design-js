@@ -6,6 +6,8 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import { useReef, type CamView } from "../store";
 import Room from "./Room";
+import PanoramaReef from "./PanoramaReef";
+import { fitDisplay } from "./tankLayout";
 import Tank from "./Tank";
 import Rockscape from "./Rockscape";
 import Corals from "./Corals";
@@ -44,6 +46,15 @@ function CameraRig({ stage }: { stage?: number }) {
   const fit = (v: CamView) => {
     const def = VIEWS[v];
     const aspect = size.width / size.height;
+    const focus = useReef.getState().focus;
+    if (stage === undefined && focus !== "main") {
+      return fitDisplay(
+        focus,
+        v,
+        aspect,
+        (camera as THREE.PerspectiveCamera).fov,
+      );
+    }
     const presentation: [number, number, number] | null =
       stage === undefined
         ? null
@@ -68,16 +79,20 @@ function CameraRig({ stage }: { stage?: number }) {
   useEffect(() => {
     const activeView = stage === undefined ? useReef.getState().view : "front";
     const { p, t } = fit(activeView);
+    anim.current = null;
     camera.position.copy(p);
     controls.current?.target.copy(t);
     controls.current?.update();
     gl.domElement.dataset.cameraView = activeView;
+    gl.domElement.dataset.cameraFocus =
+      stage === undefined ? useReef.getState().focus : "main";
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [size.width, size.height, stage]);
 
   useEffect(() => {
     if (stage !== undefined || nonce === 0) return;
     delete gl.domElement.dataset.cameraView;
+    delete gl.domElement.dataset.cameraFocus;
     const { p, t } = fit(useReef.getState().view);
     anim.current = {
       t: 0,
@@ -103,6 +118,7 @@ function CameraRig({ stage }: { stage?: number }) {
     if (a.t >= 1) {
       anim.current = null;
       gl.domElement.dataset.cameraView = useReef.getState().view;
+      gl.domElement.dataset.cameraFocus = useReef.getState().focus;
     }
   });
 
@@ -113,7 +129,7 @@ function CameraRig({ stage }: { stage?: number }) {
       enableDamping
       dampingFactor={0.08}
       minDistance={1.5}
-      maxDistance={20}
+      maxDistance={stage === undefined ? 80 : 20}
       maxPolarAngle={Math.PI * 0.58}
       target={[0, 1.65, 0]}
     />
@@ -276,7 +292,7 @@ export default function Scene({
               : "actinic"
         }
       />
-      <Room />
+      <Room paired={tutorialStage === undefined} />
       <group name="original-reef-model">
         {parts.rocks && (
           <BuildMotion active={animate && tutorialStage === 4} pulse={pulse}>
@@ -332,8 +348,9 @@ export default function Scene({
           />
         )}
       </group>
+      {tutorialStage === undefined && <PanoramaReef />}
       <CameraRig stage={tutorialStage} />
-      <EffectComposer multisampling={4}>
+      <EffectComposer multisampling={tutorialStage === undefined ? 2 : 4}>
         <Bloom
           mipmapBlur
           intensity={0.48}

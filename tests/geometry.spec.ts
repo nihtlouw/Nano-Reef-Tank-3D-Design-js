@@ -1,5 +1,12 @@
 import { test, expect } from "@playwright/test";
 import * as THREE from "three";
+import { TANK } from "../src/store";
+import { benchCenterX, PANORAMA, fitDisplay } from "../src/scene/tankLayout";
+import {
+  branchingColony,
+  platingColony,
+  torchColony,
+} from "../src/scene/panoramaCorals";
 import {
   bucketGeometry,
   sandSkirtGeometry,
@@ -48,6 +55,7 @@ test("all fish variants have finite fins, outward body normals and a closed snou
     "snowflake",
     "black",
     "goby",
+    "tang",
   ] as FishVariant[]) {
     const g = fishGeometry(variant);
     finiteGeometry(g);
@@ -147,4 +155,46 @@ test("green star polyps have eight independent fingers rather than a solid cone"
   expect(g.boundingBox!.max.y).toBeGreaterThan(0.07);
   expect(g.boundingBox!.min.y).toBeGreaterThan(0.06);
   g.dispose();
+});
+
+test("both tanks sit apart on the same bench and fit the overview at wide and portrait aspects", () => {
+  const left = -TANK.w / 2,
+    right = PANORAMA.x + PANORAMA.w / 2;
+  expect(PANORAMA.x - PANORAMA.w / 2).toBeGreaterThan(TANK.w / 2);
+  expect(left).toBeGreaterThan(benchCenterX - 10);
+  expect(right).toBeLessThan(benchCenterX + 10);
+  for (const aspect of [2.75, 1.68, 0.68]) {
+    for (const view of ["front", "angle", "top"] as const) {
+      const { p, t } = fitDisplay("both", view, aspect, 38);
+      const camera = new THREE.PerspectiveCamera(38, aspect, 0.05, 100);
+      camera.position.copy(p);
+      camera.lookAt(t);
+      camera.updateMatrixWorld();
+      for (const x of [left, right])
+        for (const y of [-0.08, 4.48])
+          for (const z of [-2, 1.85]) {
+            const ndc = new THREE.Vector3(x, y, z).project(camera);
+            expect(
+              Math.max(Math.abs(ndc.x), Math.abs(ndc.y), Math.abs(ndc.z)),
+            ).toBeLessThan(1);
+          }
+    }
+  }
+  expect(fitDisplay("panorama", "front", 1.68, 38).t.x).toBeCloseTo(PANORAMA.x);
+});
+
+test("panorama branches and plating coral have finite, volumetric geometry", () => {
+  for (const geometry of [
+    branchingColony(27, "#236f29", "#b4ff39"),
+    platingColony(),
+    torchColony(45, "#553981", "#c1a3ff"),
+  ]) {
+    finiteGeometry(geometry);
+    const extent = geometry.boundingBox!.getSize(new THREE.Vector3());
+    expect(Math.min(extent.x, extent.y, extent.z)).toBeGreaterThan(0.3);
+    expect(geometry.getAttribute("color").count).toBe(
+      geometry.getAttribute("position").count,
+    );
+    geometry.dispose();
+  }
 });
