@@ -3,7 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import * as THREE from "three";
 import Scene from "../scene/Scene";
 
-// No second aquarium model: tutorial frames and exploration render the same Scene.
+// Tutorial frames use the original tank only; the neighbouring reef is exploration-only.
 export default function Stage3D({
   index,
   animate = false,

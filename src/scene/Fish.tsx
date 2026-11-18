@@ -25,6 +25,11 @@ export const SWIM_BOUNDS = {
 
 export type Behaviour =
   | { kind: "host"; home: THREE.Vector3; radius: [number, number, number] }
+  | {
+      kind: "circuit";
+      center: [number, number, number];
+      radius: [number, number, number];
+    }
   | { kind: "bottom" }
   | { kind: "roam" }
   | { kind: "perch"; spots: THREE.Vector3[] };
@@ -103,6 +108,20 @@ function useSwimBrain(
   const step = (obj: THREE.Object3D, t: number, dt: number) => {
     const s = state.current;
     dt = Math.min(dt, 0.05);
+    // A local circuit in the panoramic tank's open foreground. It never queries
+    // the original reef's height field or consumes food from the main tank.
+    if (behaviour.kind === "circuit") {
+      const [x, y, z] = behaviour.center,
+        [rx, ry, rz] = behaviour.radius;
+      const a = (t * speed) / rx + seed;
+      obj.position.set(
+        x + rx * Math.sin(a),
+        y + ry * Math.sin(2 * a),
+        z + rz * Math.cos(a),
+      );
+      obj.rotation.set(0, Math.atan2(rx * Math.cos(a), -rz * Math.sin(a)), 0);
+      return 0.72;
+    }
     // food chasing
     const fb =
       behaviour.kind === "perch"
@@ -208,12 +227,12 @@ export function ProceduralFish({
           clearcoat: 0.6,
           clearcoatRoughness: 0.3,
           side: THREE.DoubleSide,
-          emissive: "#ff7a3a",
-          emissiveIntensity: 0.06,
+          emissive: variant === "tang" ? "#ffffff" : "#ff7a3a",
+          emissiveIntensity: variant === "tang" ? 0.24 : 0.06,
         }),
-        { swim, caustics: 0.35 },
+        { swim, caustics: 0.35, pigmentGlow: variant === "tang" },
       ),
-    [swim],
+    [swim, variant],
   );
   const pecMat = useMemo(
     () =>
@@ -243,7 +262,11 @@ export function ProceduralFish({
   return (
     <group ref={group} position={start}>
       <group scale={[size * stretch[0], size * stretch[1], size * stretch[2]]}>
-        <mesh geometry={geo} material={mat} castShadow />
+        <mesh
+          geometry={geo}
+          material={mat}
+          castShadow={behaviour.kind !== "circuit"}
+        />
         <mesh
           ref={finL}
           geometry={pecGeo}

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { noise3 } from "./noise";
 
-export type FishVariant = "ocellaris" | "snowflake" | "black" | "goby";
+export type FishVariant = "ocellaris" | "snowflake" | "black" | "goby" | "tang";
 
 // Body runs along +Z (head at +z). Unit length ~1.
 const Z0 = -0.3; // peduncle
@@ -28,6 +28,8 @@ const C = {
   dark: new THREE.Color("#1d0d0b"),
   yellow: new THREE.Color("#ffd51c"),
   blue: new THREE.Color("#3aa0ff"),
+  cobalt: new THREE.Color("#2b60ef"),
+  ink: new THREE.Color("#111934"),
 };
 
 function band(t: number, c: number, w: number) {
@@ -36,6 +38,15 @@ function band(t: number, c: number, w: number) {
 
 function bodyColor(v: FishVariant, t: number, th: number, out: THREE.Color) {
   const top = Math.max(0, Math.sin(th));
+  if (v === "tang") {
+    const y = Math.sin(th);
+    // Dark palette marking surrounding a cobalt island on each flank.
+    const stripe =
+      Math.abs(y - (0.1 + 0.46 * Math.sin(t * Math.PI))) < 0.24 && t < 0.82;
+    return out
+      .copy(stripe && !(t > 0.36 && t < 0.54 && y < 0.52) ? C.ink : C.cobalt)
+      .lerp(C.blue, Math.max(0, -y) * 0.45);
+  }
   if (v === "goby") {
     out.copy(C.yellow);
     if (t > 0.86) out.lerp(C.orange, 0.25);
@@ -80,6 +91,7 @@ function bodyColor(v: FishVariant, t: number, th: number, out: THREE.Color) {
 }
 
 function finColor(v: FishVariant, s: number, out: THREE.Color) {
+  if (v === "tang") return out.copy(s > 0.86 ? C.ink : C.cobalt);
   if (v === "goby") return out.copy(C.yellow).lerp(C.blue, s > 0.88 ? 0.6 : 0);
   if (v === "black")
     return out
@@ -249,7 +261,10 @@ function caudal(v: FishVariant) {
       ),
     );
   }
-  return finGrid(base, outer, 7, v);
+  const tail = finGrid(base, outer, 7, v);
+  return v === "tang"
+    ? withColor(tail, (p) => (Math.abs(p.y) > 0.129 ? C.ink : C.yellow))
+    : tail;
 }
 
 function pelvic(v: FishVariant, side: number) {

@@ -3,13 +3,15 @@
 Aplikasi berbahasa Indonesia dengan **dua tujuan saja**:
 
 - **Tutorial Visual** (`#tutorial/0`–`#tutorial/10`): sebelas tahap, gambar 3D, bahan, tiga tindakan, dan tombol lanjut.
-- **Eksplorasi 3D** (`#explore`): desain akuarium asli dengan kaca, susunan batu detail, koral, anemon, ikan, lampu, dan peralatan. Kamera, cahaya, gerakan aliran, biota tambahan, serta pakan simulasi dapat diubah.
+- **Eksplorasi 3D** (`#explore`): dua akuarium 3D berdampingan di satu meja. Tank utama dari tutorial berada di kiri; **Reef Panorama**, model berdasarkan foto acuan, berada di kanan. Pilih **Kedua tank**, **Tank utama**, atau **Tank kedua** untuk mengarahkan kamera. Cahaya dan aliran visual berlaku di scene; biota tambahan dan pakan simulasi tetap khusus tank utama.
 
 Dashboard, identitas Reefnotes, daftar belanja terpisah, diagram teknis, halaman perakitan lama, cycling, dan jurnal telah dihapus dari antarmuka. Tautan hash lama membuka tutorial, bukan halaman lama. Data lokal lama tidak dihapus; antarmuka jurnal/anggaran tidak lagi tersedia.
 
-## Satu model untuk tutorial dan eksplorasi
+## Model utama bersama; tank kedua khusus eksplorasi
 
 `src/scene/Scene.tsx` menjadi sumber bersama: **tidak ada model akuarium sederhana pengganti**. Tutorial menampilkan bagian model asli sesuai urutan pemasangan. Batu/pasir memakai geometri dan tekstur asli; polip, koral, anemon, serta ikan baru terlihat pada tahap biota. Tahap mixing menambahkan ember terpisah, cycling menambahkan test kit, dan perawatan menambahkan ember RO/DI.
+
+Tank kedua tidak ditambahkan ke langkah, daftar bahan, atau gambar tutorial. Bentuk memanjang, dua tudung LED, panel biru bergaris, rak frag, koral bercabang dan koral berlapis merah dimodelkan dalam 3D (bukan foto yang ditempel pada kaca). Tombol **Foto acuan** menampilkan foto kiriman asli yang dikompresi ke `src/assets/reef-panorama.webp`. Tanpa WebGL, eksplorasi menampilkan render kedua tank atau gambar masing-masing sesuai fokus.
 
 1. Kenali alat dan bahan.
 2. Pilih lokasi dan siapkan stand.
@@ -23,7 +25,7 @@ Dashboard, identitas Reefnotes, daftar belanja terpisah, diagram teknis, halaman
 10. Evaluasi dan tambahkan biota bertahap.
 11. Perawatan rutin; top-off dengan air tawar RO/DI.
 
-Gambar WebP adalah **render 3D**, bukan foto tank nyata atau video, dan tetap tersedia tanpa WebGL. Mode Interaktif menggunakan scene yang sama, dengan animasi penempatan/pengisian opsional. Tidak ada autoplay, sensor, angka suhu/pH buatan, atau kelulusan cycling otomatis. **Lanjut hanya menavigasi**; checklist adalah catatan manual.
+Gambar WebP pada tutorial adalah **render 3D**, bukan foto tank nyata atau video, dan tetap tersedia tanpa WebGL. Mode Interaktif menggunakan scene yang sama, dengan animasi penempatan/pengisian opsional. Tidak ada autoplay, sensor, angka suhu/pH buatan, atau kelulusan cycling otomatis. **Lanjut hanya menavigasi**; checklist adalah catatan manual.
 
 Posisi terakhir, kesiapan bahan, dan checklist disimpan di `localStorage` browser saat ini. Checklist lama tetap dikenali. Tidak ada akun, cloud sync, atau jaminan backup. Penyimpanan terblokir/penuh menampilkan peringatan. Gambar dapat diunduh sebagai WebP atau PNG dari canvas interaktif.
 
@@ -68,6 +70,7 @@ Script membuka `?capture=N` khusus development, menunggu scene asli siap, dan me
 - `src/tutorial/TutorialTools.tsx`: ember/test kit pelengkap tutorial.
 - `src/Exploration.tsx`: kontrol dan fallback eksplorasi.
 - `src/AquariumView.tsx`, `src/scene/`: model akuarium asli yang digunakan bersama.
+- `src/scene/PanoramaReef.tsx`, `panoramaCorals.ts`, `tankLayout.ts`: model pendamping, geometri koral, dan bingkai kamera untuk kedua tank.
 - `src/guide/storage.ts`: helper penyimpanan lokal yang dipertahankan untuk tutorial.
 
 ## Build dan deploy Vercel

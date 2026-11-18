@@ -45,6 +45,7 @@ float causticFn(vec2 p, float t) {
 `;
 
 export interface PatchOptions {
+  pigmentGlow?: boolean; // Fluoresce using vertex pigment rather than a uniform colour.
   caustics?: number; // strength multiplier (0 = off)
   tentacle?: { len: number; droop: number; sway: number; speed: number };
   swim?: { uPhase: { value: number }; uAmp: { value: number } };
@@ -57,6 +58,7 @@ export function patchMaterial<T extends THREE.Material>(
 ): T {
   const key = JSON.stringify({
     c: !!opts.caustics,
+    glow: !!opts.pigmentGlow,
     t: !!opts.tentacle,
     s: !!opts.swim,
     p: !!opts.polyp,
@@ -149,6 +151,12 @@ export function patchMaterial<T extends THREE.Material>(
         }`,
       );
     vHead = "";
+    if (opts.pigmentGlow) {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <emissivemap_fragment>",
+        "#include <emissivemap_fragment>\n totalEmissiveRadiance *= vColor.rgb;",
+      );
+    }
     shader.fragmentShader = shader.fragmentShader
       .replace(
         "#include <common>",

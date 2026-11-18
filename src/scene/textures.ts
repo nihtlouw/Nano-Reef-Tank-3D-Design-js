@@ -305,3 +305,25 @@ export function backdropTexture() {
     return t;
   });
 }
+
+/** Sweeping cobalt bands on the rear panel of the supplied panoramic reef. */
+export function panoramaBackdropTexture() {
+  return memo("panorama-backdrop", () => {
+    const [c, g] = canvas(1024, 320);
+    const water = g.createLinearGradient(0, 0, 0, 320);
+    water.addColorStop(0, "#4a80ee");
+    water.addColorStop(0.34, "#162e6b");
+    water.addColorStop(0.62, "#091938");
+    water.addColorStop(1, "#080e2a");
+    g.fillStyle = water;
+    g.fillRect(0, 0, c.width, c.height);
+    g.strokeStyle = "#071029";
+    for (let i = 0; i < 25; i++) {
+      g.beginPath();
+      g.ellipse(610, -196, 180 + i * 42, 147 + i * 19, 0.15 + i * 0.003, 0, Math.PI * 2);
+      g.lineWidth = 6 + i * 0.23;
+      g.stroke();
+    }
+    return toTex(c);
+  });
+}

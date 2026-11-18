@@ -44,32 +44,50 @@ try {
     assert(bytes.length > 5000);
     await writeFile(path, bytes);
   }
-  const views = [
-    ["front", "Depan"],
-    ["angle", "Sudut"],
-    ["top", "Atas"],
-    ["inside", "Dalam tank"],
-  ].filter(
-    ([view]) =>
-      !process.env.SCENE_AUDIT_VIEWS ||
-      process.env.SCENE_AUDIT_VIEWS.split(",").includes(view),
-  );
-  for (const [view, name] of views) {
+  const focusLabels = {
+    both: "Kedua tank",
+    main: "Tank utama",
+    panorama: "Tank kedua",
+  };
+  const viewLabels = {
+    front: "Depan",
+    angle: "Sudut",
+    top: "Atas",
+    inside: "Dalam tank",
+  };
+  const clickButton = (name) =>
+    page.getByRole("button", { name, exact: true }).evaluate((b) => b.click());
+  async function aim(focus, view) {
+    if (
+      (await page
+        .getByRole("button", { name: focusLabels[focus], exact: true })
+        .getAttribute("aria-pressed")) !== "true"
+    )
+      await clickButton(focusLabels[focus]);
+    await clickButton(viewLabels[view]);
     await page
-      .getByRole("button", { name, exact: true })
-      .evaluate((button) => button.click());
-    await page.locator(`canvas[data-camera-view="${view}"]`).waitFor();
-    await shot(".exploration-frame", `${folder}/reef-${view}.png`);
-    console.log(`Rendered original reef: ${view}`);
+      .locator(
+        `canvas[data-camera-focus="${focus}"][data-camera-view="${view}"]`,
+      )
+      .waitFor();
+  }
+  const views = [
+    ["both", "both", "front"],
+    ["panorama", "panorama", "front"],
+    ...Object.keys(viewLabels).map((view) => [view, "main", view]),
+  ].filter(
+    ([key]) =>
+      !process.env.SCENE_AUDIT_VIEWS ||
+      process.env.SCENE_AUDIT_VIEWS.split(",").includes(key),
+  );
+  for (const [name, focus, view] of views) {
+    await aim(focus, view);
+    await shot(".exploration-frame", `${folder}/reef-${name}.png`);
+    console.log(`Rendered ${focus}: ${view}`);
   }
   if (process.env.SCENE_AUDIT_LIGHTS !== "0") {
-    await page
-      .getByRole("button", { name: "Reef white", exact: true })
-      .evaluate((button) => button.click());
-    await page
-      .getByRole("button", { name: "Sudut", exact: true })
-      .evaluate((button) => button.click());
-    await page.locator('canvas[data-camera-view="angle"]').waitFor();
+    await clickButton("Reef white");
+    await aim("main", "angle");
     await shot(".exploration-frame", `${folder}/reef-white.png`);
   }
   await page
